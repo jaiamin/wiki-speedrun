@@ -1,0 +1,128 @@
+@import "tailwindcss";
+@import "./article.css";
+
+/**
+ * A deliberately monochrome interface.
+ *
+ * The chrome is white, black and four greys — nothing else. The only colour
+ * anywhere in the product is the colour of a hyperlink, because links are what
+ * the game is played with: unvisited blue, visited purple, both taken from
+ * Wikipedia itself. Restricting colour to the mechanic means the article is
+ * always the most saturated thing on screen, which is exactly where attention
+ * should go.
+ *
+ * This is a light-only design. There is no theme switch, and that is the
+ * choice rather than an omission.
+ */
+@theme {
+  --color-canvas: #ffffff;
+  --color-surface: #fafafa;
+  --color-line: #e7e7e7;
+  --color-line-strong: #d8d8d8;
+
+  --color-text: #101010;
+  --color-muted: #6a6a6a;
+  --color-faint: #9b9b9b;
+
+  --color-link: #3366cc;
+  --color-visited: #795cb2;
+
+  --color-good: #12703f;
+  --color-bad: #b4342a;
+
+  --font-sans: var(--font-sans-face), ui-sans-serif, system-ui, sans-serif;
+  --font-reading: var(--font-serif-face), Georgia, "Times New Roman", serif;
+  --font-mono: var(--font-mono-face), ui-monospace, "SF Mono", monospace;
+
+  --radius-card: 8px;
+  --radius-control: 6px;
+}
+
+@layer base {
+  * {
+    min-width: 0;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background: var(--color-canvas);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Numbers must never reflow as they tick. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-text);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--color-link) 18%, transparent);
+  }
+}
+
+@layer components {
+  /**
+   * The small uppercase mono label used for field names and column headers.
+   * At this size a grotesk turns to mush, whereas mono keeps each letter
+   * distinct — which is why the labelling is monospaced and the prose is not.
+   */
+  .label {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-faint);
+  }
+
+  /** Keyboard hint chip. */
+  .kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.25rem;
+    height: 1.25rem;
+    padding: 0 0.25rem;
+    border: 1px solid var(--color-line);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    background: var(--color-canvas);
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    color: var(--color-muted);
+  }
+}
+
+/* Every transition here is decorative; honour the system setting. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Indeterminate progress shown while the next article is in flight. */
+@keyframes slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}

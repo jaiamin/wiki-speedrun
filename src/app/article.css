@@ -1,0 +1,468 @@
+/**
+ * Styling for proxied Wikipedia markup.
+ *
+ * The sanitizer strips Wikipedia's TemplateStyles, which removes ~17KB per
+ * article and hands the article's appearance to us. The cost is that every
+ * structure its templates rely on — infoboxes, thumbnails, navboxes,
+ * wikitables — has to be rebuilt here. Everything is scoped to `.article` so
+ * it can never leak into the interface around it.
+ *
+ * The article is set in a serif at a comfortable reading measure: it is quoted
+ * content, not our own UI, and the shift in voice is deliberate.
+ */
+
+.article {
+  font-family: var(--font-reading);
+  font-size: 1.0625rem;
+  line-height: 1.75;
+  color: var(--color-text);
+  overflow-wrap: break-word;
+}
+
+.article p {
+  margin: 0 0 1.15em;
+}
+
+/* ── Links: the game mechanic, so they carry the only colour on the page ─── */
+
+.article .ws-link {
+  color: var(--color-link);
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-link) 28%, transparent);
+  transition: border-color 100ms ease, color 100ms ease;
+  cursor: pointer;
+}
+
+.article .ws-link:hover,
+.article .ws-link:focus-visible {
+  border-bottom-color: currentColor;
+}
+
+/* Pages already on the trail, so backtracking is visible at a glance. */
+.article .ws-link[data-visited="true"] {
+  color: var(--color-visited);
+  border-bottom-color: color-mix(
+    in srgb,
+    var(--color-visited) 28%,
+    transparent
+  );
+}
+
+/* ── Headings ────────────────────────────────────────────────────────────── */
+
+.article .mw-heading {
+  margin: 2em 0 0.65em;
+}
+
+.article h2,
+.article h3,
+.article h4,
+.article h5 {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  letter-spacing: -0.011em;
+  line-height: 1.3;
+  margin: 0;
+}
+
+.article h2 {
+  font-size: 1.25rem;
+  padding-bottom: 0.35em;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.article h3 {
+  font-size: 1.0625rem;
+}
+
+.article h4,
+.article h5 {
+  font-size: 0.9375rem;
+  color: var(--color-muted);
+}
+
+/* ── Lists ───────────────────────────────────────────────────────────────── */
+
+.article ul,
+.article ol {
+  margin: 0 0 1.15em;
+  padding-left: 1.4em;
+}
+
+.article li {
+  margin-bottom: 0.3em;
+}
+
+.article ul {
+  list-style: disc;
+}
+
+.article dl {
+  margin: 0 0 1.15em;
+}
+
+.article dt {
+  font-weight: 600;
+}
+
+.article dd {
+  margin: 0 0 0.4em 1.4em;
+}
+
+/* ── Media ───────────────────────────────────────────────────────────────── */
+
+.article img {
+  max-width: 100%;
+  height: auto;
+}
+
+/*
+ * Neutralise Wikipedia's hard-coded inline widths inside infoboxes.
+ *
+ * The `multiple image` template emits `style="width:292px;max-width:292px"` on
+ * its wrappers, sized for Wikipedia's own column. Inline styles outrank every
+ * selector, so `!important` is genuinely the only lever here — and without it
+ * those wrappers demand 292px inside a cell barely half that, and the images
+ * spill out past the infobox border.
+ *
+ * Once the wrappers stop demanding a fixed width, `max-width: 100%` on the
+ * image finally has something real to resolve against and the table fits.
+ */
+.article .infobox .multiimageinner,
+.article .infobox .trow,
+.article .infobox .tsingle,
+.article .infobox div[style*="width"],
+.article .sidebar .multiimageinner,
+.article .sidebar div[style*="width"] {
+  width: auto !important;
+  max-width: 100% !important;
+}
+
+.article .infobox img,
+.article .sidebar img,
+.article .navbox img {
+  max-width: 100% !important;
+  height: auto;
+}
+
+/* Long unbroken strings (URLs, taxonomy names) must not force a cell wider. */
+.article .infobox td,
+.article .infobox th,
+.article .sidebar td,
+.article .sidebar th {
+  overflow-wrap: break-word;
+}
+
+.article figure,
+.article .thumb {
+  margin: 0 0 1.35em 1.75em;
+  float: right;
+  clear: right;
+  width: min(300px, 40%);
+}
+
+.article .thumbinner,
+.article figure {
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  background: var(--color-canvas);
+}
+
+.article figure img,
+.article .thumbinner img {
+  display: block;
+  width: 100%;
+}
+
+.article .thumbcaption,
+.article figcaption {
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--color-muted);
+  padding: 0.6em 0.7em;
+  border-top: 1px solid var(--color-line);
+}
+
+/**
+ * Floats are for images in the body text only.
+ *
+ * The `.thumb` and `figure` rules above float right at a fixed width, which is
+ * right in prose and wrong everywhere else — Wikipedia reuses the same classes
+ * for the multi-image blocks *inside* infoboxes, where floating them shoved
+ * the images against the right edge of the cell and left a dead gutter beside
+ * them. Boxed contexts get the plain, full-width treatment instead.
+ */
+.article .infobox .thumb,
+.article .infobox figure,
+.article .sidebar .thumb,
+.article .sidebar figure,
+.article .navbox .thumb,
+.article .navbox figure {
+  float: none;
+  clear: none;
+  width: auto;
+  margin: 0 auto;
+  border: 0;
+  border-radius: 0;
+}
+
+.article .gallery {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  list-style: none;
+  padding: 0;
+}
+
+.article .gallerybox {
+  flex: 0 0 auto;
+}
+
+/* ── Infobox ─────────────────────────────────────────────────────────────── */
+
+.article .infobox {
+  float: right;
+  clear: right;
+  width: min(320px, 44%);
+  margin: 0 0 1.35em 1.75em;
+  border: 1px solid var(--color-line);
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  border-collapse: collapse;
+}
+
+.article .infobox caption,
+.article .infobox-title,
+.article .infobox-above {
+  font-weight: 600;
+  font-size: 0.9375rem;
+  padding: 0.7em 0.8em;
+  text-align: left;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-line);
+}
+
+.article .infobox th,
+.article .infobox td {
+  padding: 0.45em 0.8em;
+  vertical-align: top;
+  text-align: left;
+  border-top: 1px solid var(--color-line);
+}
+
+.article .infobox th {
+  font-weight: 500;
+  color: var(--color-muted);
+}
+
+.article .infobox-header,
+.article .infobox-subheader {
+  background: var(--color-surface);
+  font-weight: 600;
+}
+
+/* ── Tables ──────────────────────────────────────────────────────────────── */
+
+.article .wikitable {
+  border-collapse: collapse;
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  margin: 0 0 1.35em;
+  width: 100%;
+}
+
+.article .wikitable th,
+.article .wikitable td {
+  border: 1px solid var(--color-line);
+  padding: 0.5em 0.7em;
+  text-align: left;
+  vertical-align: top;
+}
+
+.article .wikitable th {
+  background: var(--color-surface);
+  font-weight: 600;
+}
+
+/**
+ * Wikipedia tables are routinely wider than any column we can give them, so
+ * each gets its own scroller rather than pushing the page sideways.
+ */
+.article .ws-table-scroll {
+  overflow-x: auto;
+  margin: 0 0 1.35em;
+  -webkit-overflow-scrolling: touch;
+}
+
+.article .ws-table-scroll > table {
+  margin-bottom: 0;
+}
+
+/* ── Hatnotes, sidebars, navboxes ────────────────────────────────────────── */
+
+.article .hatnote {
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  color: var(--color-muted);
+  padding: 0 0 0 0.9em;
+  border-left: 2px solid var(--color-line);
+  margin-bottom: 1em;
+}
+
+.article .sidebar {
+  float: right;
+  clear: right;
+  width: min(250px, 38%);
+  margin: 0 0 1.35em 1.75em;
+  border: 1px solid var(--color-line);
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  line-height: 1.55;
+  border-collapse: collapse;
+}
+
+.article .sidebar th,
+.article .sidebar td {
+  padding: 0.4em 0.7em;
+  text-align: left;
+  vertical-align: top;
+}
+
+.article .sidebar-title,
+.article .sidebar-pretitle {
+  font-weight: 600;
+  background: var(--color-surface);
+}
+
+/**
+ * Navboxes are kept rather than stripped: they are part of how wikiracing is
+ * played, and the pathfinder searches the same link graph they belong to, so
+ * removing them would let the route we show a player run through a link they
+ * never had. They
+ * are set quietly so they never compete with the article.
+ */
+.article .navbox {
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  line-height: 1.7;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-card);
+  margin: 2em 0 0;
+  width: 100%;
+  border-collapse: collapse;
+  clear: both;
+  color: var(--color-muted);
+}
+
+.article .navbox th,
+.article .navbox td {
+  padding: 0.4em 0.7em;
+  text-align: left;
+  vertical-align: top;
+}
+
+.article .navbox-title {
+  font-weight: 600;
+  color: var(--color-text);
+  background: var(--color-surface);
+}
+
+.article .navbox-group {
+  font-weight: 500;
+  color: var(--color-text);
+  white-space: nowrap;
+  background: var(--color-surface);
+}
+
+.article blockquote {
+  margin: 0 0 1.15em;
+  padding-left: 1.1em;
+  border-left: 2px solid var(--color-line);
+  color: var(--color-muted);
+}
+
+.article sup,
+.article sub {
+  font-size: 0.7em;
+  line-height: 0;
+}
+
+.article code,
+.article pre {
+  font-family: var(--font-mono);
+  font-size: 0.8em;
+}
+
+/**
+ * `hlist` packs dozens of links into a few interpunct-separated lines. Without
+ * it, navboxes and sidebars become very long vertical lists.
+ */
+.article .hlist ul,
+.article .hlist ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: inline;
+}
+
+.article .hlist li {
+  display: inline;
+  margin: 0;
+}
+
+.article .hlist li:not(:last-child)::after {
+  content: " · ";
+  color: var(--color-faint);
+}
+
+.article .hlist ul ul {
+  display: inline;
+}
+
+.article .hlist ul ul::before {
+  content: "(";
+}
+
+.article .hlist ul ul::after {
+  content: ")";
+}
+
+.article .mw-halign-right {
+  float: right;
+  clear: right;
+  margin-left: 1.75em;
+}
+
+.article .mw-halign-left {
+  float: left;
+  clear: left;
+  margin-right: 1.75em;
+}
+
+.article .mw-halign-center {
+  float: none;
+  margin-inline: auto;
+}
+
+/* ── Narrow screens: floats become full-width blocks ─────────────────────── */
+
+@media (max-width: 720px) {
+  .article {
+    font-size: 1rem;
+  }
+
+  .article .infobox,
+  .article .sidebar,
+  .article figure,
+  .article .thumb,
+  .article .mw-halign-right,
+  .article .mw-halign-left {
+    float: none;
+    width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+  }
+}
