@@ -19,14 +19,20 @@ Think GeoGuessr, but the map is Wikipedia.
   cuts, and true random for Chaos.
 - **Daily challenge.** Everyone gets the same pairing each day, derived from
   the date rather than stored, so it works with no database.
-- **Custom runs.** Pick both endpoints yourself with typeahead search.
-- **Splits.** Every article you land on is a timed segment. The results
-  screen shows the whole run as a split table, with the slowest leg marked.
-- **Par.** After the run, your route is scored against the shortest path that
+- **Custom runs.** Pick both endpoints with typeahead search. Only real
+  articles are accepted, so a custom run can never start on a 404.
+- **Hover definitions.** Hovering a link shows what the article is about
+  before you commit to it — "Cádiz" and "Breccia" tell you nothing on their
+  own. It reveals what a title means, never anything about the route.
+- **An interactive trail.** Every page you have visited is listed and
+  clickable, so you can jump back to any of them. Doing so truncates the
+  trail, which keeps it an honest record of the route you actually took.
+- **The shortest route.** Win or give up, you are shown the shortest path that
   actually existed, computed live from Wikipedia's link graph.
 - **No Ctrl+F.** The classic wikiracing rule, enforced.
-- **Local history.** Runs and personal bests are kept in your browser. No
-  account, no server, no tracking.
+- **Local history.** Runs are grouped by pairing and kept in your browser,
+  showing whether you beat each one and your best time for it. No account, no
+  server, no tracking.
 
 ## Design
 

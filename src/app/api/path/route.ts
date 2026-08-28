@@ -9,7 +9,7 @@ import { CACHE } from "@/lib/wiki/config";
  *
  * A search takes a few seconds and a couple of dozen upstream requests, so the
  * response is cached hard — the link graph barely moves day to day, and two
- * players given the same puzzle should see the same par.
+ * two players given the same puzzle see the same answer.
  */
 export async function GET(request: NextRequest) {
   try {

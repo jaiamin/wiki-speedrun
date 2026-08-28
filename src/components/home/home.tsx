@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Shuffle } from "lucide-react";
+import { Check, RotateCcw, Shuffle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Modal } from "@/components/ui/modal";
 import { Segmented } from "@/components/ui/segmented";
 import { ArticleSearch } from "@/components/game/article-search";
 import { formatClock } from "@/lib/game/format";
+import { summarizePairings } from "@/lib/game/storage";
 import { useRuns } from "@/lib/game/use-runs";
 import { useSummary } from "@/lib/game/use-summary";
 import { DIFFICULTIES, DIFFICULTY_META } from "@/lib/game/types";
@@ -29,17 +31,18 @@ const DIFFICULTY_OPTIONS = DIFFICULTIES.map((id) => ({
 /**
  * The home screen.
  *
- * Everything on this page — the pairing, the settings, the rules, the history —
- * sits on one alignment: a fixed label column on the left, content on the
- * right, rows separated by hairlines. That single structure is what holds the
- * page together, and it is why none of it is in boxes. Cards would draw four
- * borders around each item and still not line anything up.
+ * Everything here sits on one alignment: a fixed label column, then content,
+ * rows separated by hairlines. The pairing, the settings and the history all
+ * use it, which is what holds the page together without putting anything in a
+ * card — cards would draw four borders around each item and still not line
+ * anything up.
  */
 export function Home() {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("random");
   const [difficulty, setDifficulty] = useState<Difficulty>("medium");
   const [nonce, setNonce] = useState(0);
+  const [rulesOpen, setRulesOpen] = useState(false);
   const [loaded, setLoaded] = useState<{ key: string; puzzle: Puzzle } | null>(
     null,
   );
@@ -76,28 +79,23 @@ export function Home() {
   const target = mode === "custom" ? customTarget : (puzzle?.target ?? null);
   const ready = Boolean(start && target && start !== target);
 
+  const startRun = useCallback(
+    (from: string, to: string, meta?: { difficulty?: Difficulty; daily?: string | null }) => {
+      const params = new URLSearchParams({ start: from, target: to });
+      if (meta?.difficulty) params.set("difficulty", meta.difficulty);
+      if (meta?.daily) params.set("daily", meta.daily);
+      router.push(`/play?${params.toString()}`);
+    },
+    [router],
+  );
+
   const begin = useCallback(() => {
     if (!start || !target || start === target) return;
-
-    const params = new URLSearchParams({ start, target });
-    if (mode === "random") params.set("difficulty", difficulty);
-    if (mode === "daily" && puzzle?.daily) params.set("daily", puzzle.daily);
-
-    router.push(`/play?${params.toString()}`);
-  }, [difficulty, mode, puzzle, router, start, target]);
-
-  // Enter starts the run from anywhere that is not a text field.
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Enter" || !ready) return;
-      const tag = (event.target as HTMLElement)?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA") return;
-      begin();
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [begin, ready]);
+    startRun(start, target, {
+      difficulty: mode === "random" ? difficulty : undefined,
+      daily: mode === "daily" ? puzzle?.daily : undefined,
+    });
+  }, [difficulty, mode, puzzle, start, startRun, target]);
 
   return (
     <div className="min-h-dvh">
@@ -106,12 +104,13 @@ export function Home() {
           <span className="text-[0.9375rem] font-semibold tracking-[-0.015em]">
             Wiki Speedrun
           </span>
-          <a
-            href="#rules"
+          <button
+            type="button"
+            onClick={() => setRulesOpen(true)}
             className="text-[0.8125rem] text-muted underline-offset-4 hover:text-text hover:underline"
           >
             Rules
-          </a>
+          </button>
         </div>
       </header>
 
@@ -121,8 +120,9 @@ export function Home() {
             Race between two Wikipedia articles.
           </h1>
           <p className="mt-4 max-w-md text-[0.9375rem] leading-relaxed text-muted">
-            Links only, no search. The clock starts when the first page loads
-            and stops the moment you land on the target.
+            Two articles, one clock, and nothing to navigate with but the links
+            in front of you. No search, no address bar, no luck — just how fast
+            you can think your way across the encyclopedia.
           </p>
         </section>
 
@@ -212,29 +212,25 @@ export function Home() {
               Shuffle
             </Button>
           )}
-
-          <span className="ml-1 flex items-center gap-1.5 text-xs text-faint">
-            <kbd className="kbd">↵</kbd>
-            to start
-          </span>
         </div>
 
-        <Rules />
-        <History />
+        <History onRetry={startRun} />
       </main>
 
       <footer className="mx-auto max-w-3xl px-6 py-10 text-xs text-faint">
         Article content from Wikipedia, licensed CC BY-SA 4.0. Not affiliated
         with the Wikimedia Foundation.
       </footer>
+
+      <RulesModal open={rulesOpen} onClose={() => setRulesOpen(false)} />
     </div>
   );
 }
 
 /**
  * One row of the page's grid: label left, content right, hairline beneath.
- * Collapses to stacked on narrow screens, where a 100px label column would
- * leave nothing for the content.
+ * Stacks on narrow screens, where a fixed label column would leave nothing
+ * for the content.
  */
 function Row({
   label,
@@ -308,78 +304,132 @@ const RULES = [
       "Ctrl+F is disabled and Wikipedia's own search is gone. Finding the target's name on the page would replace the game with a text search.",
   },
   {
-    term: "Par",
+    term: "Backtracking",
     detail:
-      "When you finish, your route is scored against the shortest one that actually existed, computed from Wikipedia's live link graph.",
+      "Every page on your trail is clickable, so you can return to any of them. Doing so drops the pages after it — the trail always shows the route you actually took.",
+  },
+  {
+    term: "Definitions",
+    detail:
+      "Hover a link to see what the article is about before you commit to it. It tells you nothing about the route, only what the title means.",
+  },
+  {
+    term: "The clock",
+    detail:
+      "It starts when the first article finishes loading and stops the instant you land on the target. Redirects count: click USA and you win on United States.",
   },
 ];
 
-function Rules() {
+function RulesModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
-    <section id="rules" className="scroll-mt-6 pt-4">
-      <h2 className="label mb-1 border-b border-line pb-4">Rules</h2>
-      <dl>
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={
+        <p className="text-[1.25rem] font-semibold tracking-[-0.02em]">Rules</p>
+      }
+    >
+      <dl className="space-y-5">
         {RULES.map((rule) => (
-          <div
-            key={rule.term}
-            className="grid gap-x-6 gap-y-1 border-b border-line py-5 sm:grid-cols-[6.5rem_1fr]"
-          >
+          <div key={rule.term}>
             <dt className="text-[0.9375rem] font-semibold tracking-[-0.015em]">
               {rule.term}
             </dt>
-            <dd className="max-w-lg text-[0.8125rem] leading-relaxed text-muted">
+            <dd className="mt-1 text-[0.8125rem] leading-relaxed text-muted">
               {rule.detail}
             </dd>
           </div>
         ))}
       </dl>
-    </section>
+    </Modal>
   );
 }
 
 /**
- * Recent runs. Empty on a first visit, so the section removes itself rather
- * than showing a placeholder.
+ * Past runs, one row per pairing rather than per attempt.
+ *
+ * A pairing can be replayed as often as you like, so listing every attempt is
+ * mostly repetition. Grouping lets each row answer the two questions worth
+ * asking — did I beat this, and how fast — and gives retry somewhere obvious
+ * to live.
  */
-function History() {
+function History({
+  onRetry,
+}: {
+  onRetry: (start: string, target: string) => void;
+}) {
   const runs = useRuns();
   if (runs.length === 0) return null;
 
-  const best = runs.reduce((fastest, run) =>
-    run.elapsedMs < fastest.elapsedMs ? run : fastest,
-  );
+  const pairings = summarizePairings(runs);
 
   return (
-    <section className="pt-10">
-      <div className="mb-1 flex items-baseline justify-between border-b border-line pb-4">
-        <h2 className="label">Your runs</h2>
-        <span className="text-xs text-muted">
-          {runs.length} finished · best{" "}
-          <span className="tnum font-mono text-text">
-            {formatClock(best.elapsedMs)}
-          </span>
-        </span>
-      </div>
+    <section className="pt-4">
+      <h2 className="label border-b border-line pb-4">Your runs</h2>
 
-      <table className="w-full text-[0.8125rem]">
-        <tbody>
-          {runs.slice(0, 6).map((run) => (
-            <tr key={run.id} className="border-b border-line">
-              <td className="py-3 pr-4">
-                <span className="text-muted">{run.start}</span>
-                <span className="mx-1.5 text-faint">→</span>
-                <span>{run.target}</span>
-              </td>
-              <td className="tnum w-16 py-3 text-right font-mono text-muted">
-                {run.clicks}
-              </td>
-              <td className="tnum w-24 py-3 text-right font-mono">
-                {formatClock(run.elapsedMs)}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <ul>
+        {pairings.slice(0, 8).map((pairing) => {
+          const beaten = pairing.best !== null;
+
+          return (
+            <li
+              key={pairing.key}
+              className="grid grid-cols-[auto_1fr_auto] items-start gap-x-3 border-b border-line py-4"
+            >
+              {beaten ? (
+                <Check
+                  className="mt-0.5 size-4 text-good"
+                  aria-label="Beaten"
+                />
+              ) : (
+                <X className="mt-0.5 size-4 text-bad" aria-label="Not beaten" />
+              )}
+
+              <div className="min-w-0">
+                <div className="text-[0.875rem]">
+                  <span className="text-muted">{pairing.start}</span>
+                  <span className="mx-1.5 text-faint">→</span>
+                  <span className="font-medium">{pairing.target}</span>
+                </div>
+
+                {pairing.best ? (
+                  <p className="mt-1 text-xs leading-relaxed text-muted">
+                    {pairing.best.trail.join(" › ")}
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs text-muted">
+                    Not beaten in {pairing.attempts}{" "}
+                    {pairing.attempts === 1 ? "attempt" : "attempts"}.
+                  </p>
+                )}
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <div className="tnum font-mono text-[0.8125rem]">
+                    {pairing.best ? formatClock(pairing.best.elapsedMs) : "—"}
+                  </div>
+                  {pairing.best && (
+                    <div className="tnum font-mono text-[0.625rem] text-faint">
+                      {pairing.best.clicks}{" "}
+                      {pairing.best.clicks === 1 ? "click" : "clicks"}
+                    </div>
+                  )}
+                </div>
+
+                <Button
+                  size="sm"
+                  onClick={() => onRetry(pairing.start, pairing.target)}
+                  aria-label={`Retry ${pairing.start} to ${pairing.target}`}
+                >
+                  <RotateCcw className="size-3" aria-hidden />
+                  Retry
+                </Button>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
     </section>
   );
 }

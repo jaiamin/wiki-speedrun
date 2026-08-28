@@ -1,5 +1,3 @@
-import type { RunRecord } from "./types";
-
 /**
  * Format a duration the way a speedrun timer does: minutes, seconds, and two
  * decimal places, growing an hours field only when it is actually needed.
@@ -34,32 +32,4 @@ export function formatShort(ms: number): string {
 export function formatDelta(ms: number): string {
   const sign = ms >= 0 ? "+" : "-";
   return `${sign}${(Math.abs(ms) / 1000).toFixed(2)}`;
-}
-
-/**
- * A result compact enough to paste into a chat without spoiling the route.
- *
- * The squares encode the run rather than decorating it: one per click, gold
- * for the clicks par allows and purple for every click beyond it, so the shape
- * alone says how close to optimal the run was.
- */
-export function shareText(record: RunRecord, par: number | null): string {
-  const header = record.daily
-    ? `Wiki Speedrun — Daily ${record.daily}`
-    : "Wiki Speedrun";
-
-  const squares =
-    par === null
-      ? "🟦".repeat(Math.min(record.clicks, 20))
-      : "🟨".repeat(Math.min(par, 20)) +
-        "🟪".repeat(Math.max(0, Math.min(record.clicks - par, 20)));
-
-  const parLine = par === null ? "" : ` · par ${par}`;
-
-  return [
-    header,
-    `${record.start} → ${record.target}`,
-    `${formatClock(record.elapsedMs)} · ${record.clicks} clicks${parLine}`,
-    squares,
-  ].join("\n");
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 
 interface ArticleSearchProps {
   label: string;
@@ -20,9 +20,12 @@ interface Suggestion {
 /**
  * Typeahead over article titles, for building a custom run.
  *
- * Debounced because every keystroke would otherwise be a request to Wikipedia,
- * and choosing from real suggestions rather than accepting free text means a
- * custom run can never start on an article that does not exist.
+ * The confirmed value is only ever set by choosing a suggestion, and typing
+ * clears it again. That is what guarantees a custom run points at an article
+ * that actually exists: free text like "banananana" leaves the value empty, so
+ * the start button stays disabled rather than sending the player to a 404.
+ *
+ * Debounced, because every keystroke would otherwise be a request to Wikipedia.
  */
 export function ArticleSearch({
   label,
@@ -98,6 +101,9 @@ export function ArticleSearch({
           onChange={(event) => {
             setDraft(event.target.value);
             setOpen(true);
+            // Editing invalidates a previous pick — the text no longer names
+            // the article the caller thinks it has.
+            if (value) onChange("");
           }}
           onFocus={() => setOpen(true)}
           onBlur={() => {
@@ -106,13 +112,26 @@ export function ArticleSearch({
           }}
           className="h-10 w-full rounded-[var(--radius-control)] border border-line bg-canvas px-3 text-sm outline-none placeholder:text-faint focus:border-text"
         />
-        {loading && (
+        {loading ? (
           <Loader2
             className="absolute top-1/2 right-3 size-3.5 -translate-y-1/2 animate-spin text-faint"
             aria-hidden
           />
+        ) : (
+          value && (
+            <Check
+              className="absolute top-1/2 right-3 size-3.5 -translate-y-1/2 text-good"
+              aria-label="Article selected"
+            />
+          )
         )}
       </div>
+
+      {!value && query.trim() && !loading && results.length === 0 && (
+        <p className="mt-1.5 text-xs text-muted">
+          No article matches that. Pick one from the list.
+        </p>
+      )}
 
       {open && results.length > 0 && (
         <ul className="absolute z-20 mt-1 max-h-60 w-full overflow-y-auto rounded-[var(--radius-card)] border border-line bg-canvas py-1 shadow-[0_8px_24px_rgba(0,0,0,0.08)]">

@@ -62,4 +62,6 @@ export interface RunRecord {
   clicks: number;
   elapsedMs: number;
   finishedAt: number;
+  /** False when the run was abandoned rather than won. */
+  completed: boolean;
 }

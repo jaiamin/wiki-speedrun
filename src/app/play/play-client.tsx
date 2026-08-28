@@ -4,11 +4,14 @@ import { useCallback, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Toaster, toast } from "sonner";
 import { ArticleView } from "@/components/game/article-view";
-import { RunPanel } from "@/components/game/run-panel";
 import { Results } from "@/components/game/results";
+import { RouteList, ShortestRoute } from "@/components/game/route-list";
+import { RunPanel } from "@/components/game/run-panel";
 import { Button } from "@/components/ui/button";
-import { buildRunRecord, useElapsed, useRun } from "@/lib/game/use-run";
+import { Modal } from "@/components/ui/modal";
 import { saveRun } from "@/lib/game/storage";
+import { buildRunRecord, useElapsed, useRun } from "@/lib/game/use-run";
+import { useShortestRoute } from "@/lib/game/use-shortest-route";
 import { DIFFICULTIES, type Difficulty, type Puzzle } from "@/lib/game/types";
 
 /**
@@ -21,7 +24,7 @@ import { DIFFICULTIES, type Difficulty, type Puzzle } from "@/lib/game/types";
 export function PlayClient() {
   const router = useRouter();
   const params = useSearchParams();
-  const { state, begin, go, back, giveUp } = useRun();
+  const { state, begin, go, jumpTo, giveUp } = useRun();
   const elapsed = useElapsed(state.startedAt, state.finishedAt);
 
   const start = params.get("start");
@@ -46,14 +49,19 @@ export function PlayClient() {
   useEffect(() => {
     if (!puzzle) return;
     begin(puzzle);
-    // `begin` is keyed on the pairing rather than the puzzle object, which is
-    // rebuilt on every render.
+    // Keyed on the pairing rather than the puzzle object, which is rebuilt on
+    // every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pairing]);
 
-  // Build the finished record. Pure: persisting happens in the effect below.
+  /**
+   * Build the record for a finished run — won or abandoned. Pure: persisting
+   * happens in the effect below, because writing from inside a memo saves once
+   * per render pass rather than once per run.
+   */
   const finished = useMemo(() => {
-    if (state.status !== "won") return null;
+    const over = state.status === "won" || state.status === "abandoned";
+    if (!over) return null;
     if (!state.puzzle || state.startedAt === null || state.finishedAt === null) {
       return null;
     }
@@ -63,6 +71,7 @@ export function PlayClient() {
       trail: state.trail,
       startedAt: state.startedAt,
       finishedAt: state.finishedAt,
+      completed: state.status === "won",
     });
     // Keyed on finishedAt so the record is rebuilt only when a run ends.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -80,20 +89,6 @@ export function PlayClient() {
     begin(state.puzzle);
   }, [begin, state.puzzle]);
 
-  // Backspace steps back a page, the way it would in a browser.
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      const tag = (event.target as HTMLElement)?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA") return;
-      if (event.key !== "Backspace") return;
-      event.preventDefault();
-      back();
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [back]);
-
   if (!puzzle) return <MissingPairing onHome={goHome} />;
   if (!state.puzzle) return <Booting />;
 
@@ -110,7 +105,7 @@ export function PlayClient() {
       {/* The article takes every pixel the run panel does not. */}
       <main className="min-w-0 flex-1">
         {state.error ? (
-          <ErrorPanel message={state.error} onBack={back} onHome={goHome} />
+          <ErrorPanel message={state.error} onHome={goHome} onRetry={retry} />
         ) : (
           <ArticleView
             article={state.article}
@@ -132,25 +127,22 @@ export function PlayClient() {
         startedAt={state.startedAt}
         elapsedMs={elapsed}
         running={state.status === "playing" && state.startedAt !== null}
-        canGoBack={state.trail.length > 1 && !state.loading}
-        onBack={back}
+        disabled={state.loading || state.status !== "playing"}
+        onJumpTo={jumpTo}
         onGiveUp={giveUp}
       />
 
-      {state.status === "won" &&
-        finished &&
-        state.startedAt !== null && (
-          <Results
-            record={finished}
-            trail={state.trail}
-            startedAt={state.startedAt}
-            onPlayAgain={goHome}
-            onRerun={retry}
-          />
-        )}
+      {state.status === "won" && finished && (
+        <Results record={finished} onPlayAgain={goHome} onRerun={retry} />
+      )}
 
       {state.status === "abandoned" && (
-        <GaveUp target={puzzle.target} onHome={goHome} onRetry={retry} />
+        <GaveUp
+          puzzle={state.puzzle}
+          trail={visited}
+          onHome={goHome}
+          onRetry={retry}
+        />
       )}
 
       <Toaster position="top-center" />
@@ -163,6 +155,59 @@ function Booting() {
     <div className="flex min-h-dvh items-center justify-center">
       <span className="label">Loading run</span>
     </div>
+  );
+}
+
+/**
+ * The give-up screen shows the route that existed.
+ *
+ * Abandoning a run is the moment a player most wants to know what they missed,
+ * and seeing that the answer was three clicks away is what makes the next run
+ * tempting rather than the last one annoying.
+ */
+function GaveUp({
+  puzzle,
+  trail,
+  onHome,
+  onRetry,
+}: {
+  puzzle: Puzzle;
+  trail: string[];
+  onHome: () => void;
+  onRetry: () => void;
+}) {
+  const shortest = useShortestRoute(puzzle.start, puzzle.target);
+
+  return (
+    <Modal
+      open
+      eyebrow="Run abandoned"
+      title={
+        <p className="text-[1.25rem] leading-snug font-semibold tracking-[-0.02em]">
+          {puzzle.target} stays unbeaten.
+        </p>
+      }
+      footer={
+        <>
+          <Button variant="primary" onClick={onRetry}>
+            Try again
+          </Button>
+          <Button onClick={onHome}>New run</Button>
+        </>
+      }
+    >
+      {trail.length > 1 && (
+        <>
+          <div className="label mb-2.5">How far you got</div>
+          <RouteList steps={trail} />
+        </>
+      )}
+
+      <div className={trail.length > 1 ? "label mt-6 mb-2.5" : "label mb-2.5"}>
+        Shortest route
+      </div>
+      <ShortestRoute route={shortest} />
+    </Modal>
   );
 }
 
@@ -181,50 +226,23 @@ function MissingPairing({ onHome }: { onHome: () => void }) {
 
 function ErrorPanel({
   message,
-  onBack,
-  onHome,
-}: {
-  message: string;
-  onBack: () => void;
-  onHome: () => void;
-}) {
-  return (
-    <Centered
-      title={message}
-      body="That page could not be loaded. Step back and take another link."
-    >
-      <Button variant="primary" onClick={onBack}>
-        Go back
-      </Button>
-      <Button onClick={onHome}>End run</Button>
-    </Centered>
-  );
-}
-
-function GaveUp({
-  target,
   onHome,
   onRetry,
 }: {
-  target: string;
+  message: string;
   onHome: () => void;
   onRetry: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-text/25 p-6 backdrop-blur-[2px]">
-      <div className="w-full max-w-sm rounded-[12px] border border-line bg-canvas p-6 shadow-[0_16px_48px_rgba(0,0,0,0.16)]">
-        <div className="label">Run abandoned</div>
-        <p className="mt-2 text-[1.0625rem] font-semibold tracking-[-0.011em]">
-          {target} stays unbeaten.
-        </p>
-        <div className="mt-5 flex gap-2">
-          <Button variant="primary" onClick={onRetry}>
-            Try again
-          </Button>
-          <Button onClick={onHome}>New run</Button>
-        </div>
-      </div>
-    </div>
+    <Centered
+      title={message}
+      body="That page could not be loaded. Take another link from the trail, or start the run over."
+    >
+      <Button variant="primary" onClick={onRetry}>
+        Restart run
+      </Button>
+      <Button onClick={onHome}>Go to home</Button>
+    </Centered>
   );
 }
 
@@ -240,7 +258,7 @@ function Centered({
   return (
     <div className="flex min-h-[70dvh] items-center justify-center px-6">
       <div className="max-w-sm text-center">
-        <p className="text-[1.0625rem] font-semibold tracking-[-0.011em]">
+        <p className="text-[1.0625rem] font-semibold tracking-[-0.015em]">
           {title}
         </p>
         <p className="mt-2 text-[0.8125rem] leading-relaxed text-muted">

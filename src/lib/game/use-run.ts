@@ -158,6 +158,25 @@ export function useRun() {
     [navigate, state.status],
   );
 
+  /**
+   * Return to a page already on the trail.
+   *
+   * The reducer truncates the trail back to whatever page it lands on, so
+   * jumping to index 2 of a five-page trail drops the last two entries and the
+   * route stays an accurate record of how the run actually went. This replaces
+   * a back button: stepping back one page is just jumping to the previous
+   * index, and the trail was already on screen.
+   */
+  const jumpTo = useCallback(
+    (index: number) => {
+      if (state.status !== "playing") return;
+      const entry = state.trail[index];
+      if (!entry || index === state.trail.length - 1) return;
+      void navigate(entry.title, "back");
+    },
+    [navigate, state.status, state.trail],
+  );
+
   const back = useCallback(() => {
     if (state.status !== "playing" || state.trail.length < 2) return;
     void navigate(state.trail[state.trail.length - 2].title, "back");
@@ -177,7 +196,7 @@ export function useRun() {
     dispatch({ type: "won", at: Date.now() });
   }, [state.article, state.puzzle, state.status]);
 
-  return { state, begin, go, back, giveUp, reset };
+  return { state, begin, go, back, jumpTo, giveUp, reset };
 }
 
 /**
@@ -223,6 +242,7 @@ export function buildRunRecord(state: {
   trail: TrailEntry[];
   startedAt: number;
   finishedAt: number;
+  completed: boolean;
 }): RunRecord {
   const record: RunRecord = {
     id: `${state.puzzle.start}|${state.puzzle.target}|${state.finishedAt}`,
@@ -234,6 +254,7 @@ export function buildRunRecord(state: {
     clicks: state.trail.length - 1,
     elapsedMs: state.finishedAt - state.startedAt,
     finishedAt: state.finishedAt,
+    completed: state.completed,
   };
 
   return record;

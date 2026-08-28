@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import type { Article } from "@/lib/wiki/article";
 import { normalizeTitle } from "@/lib/wiki/titles";
+import { LinkPreview, useLinkPreview } from "./link-preview";
 
 interface ArticleViewProps {
   article: Article | null;
@@ -31,6 +32,7 @@ export function ArticleView({
 }: ArticleViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { handlers, preview, clear } = useLinkPreview(true);
 
   /**
    * A new article is a new page, so the reader starts at the top. Which
@@ -111,7 +113,12 @@ export function ArticleView({
 
     event.preventDefault();
     const title = anchor.dataset.wikiTitle;
-    if (title) onNavigate(title);
+    if (title) {
+      // The preview describes a page we are leaving; dismiss it immediately
+      // rather than letting it hang over the next article.
+      clear();
+      onNavigate(title);
+    }
   };
 
   if (!article) return null;
@@ -135,9 +142,18 @@ export function ArticleView({
           ref={containerRef}
           className="article"
           onClick={handleClick}
+          {...handlers}
           dangerouslySetInnerHTML={{ __html: article.html }}
         />
       </div>
+
+      {preview && (
+        <LinkPreview
+          anchor={preview.anchor}
+          summary={preview.summary}
+          loading={preview.loading}
+        />
+      )}
     </div>
   );
 }

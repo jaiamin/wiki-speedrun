@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, CornerUpLeft, Flag } from "lucide-react";
+import { ChevronDown, Flag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatClock } from "@/lib/game/format";
 import { useSummary } from "@/lib/game/use-summary";
@@ -15,20 +15,20 @@ interface RunPanelProps {
   startedAt: number | null;
   elapsedMs: number;
   running: boolean;
-  canGoBack: boolean;
-  onBack: () => void;
+  disabled: boolean;
+  onJumpTo: (index: number) => void;
   onGiveUp: () => void;
 }
 
 /**
- * Everything about the run that is not the article, held in a fixed column on
- * the right so the encyclopedia keeps the whole of the rest.
+ * Everything about the run that is not the article, in a fixed column on the
+ * right so the encyclopedia keeps the whole of the rest.
  *
- * Two layouts rather than one responsive one, because they are genuinely
- * different instruments. Beside the page there is room to keep the clock, the
- * target and the full trail open permanently. On a phone there is no column to
- * put them in, so it collapses to a strip carrying only what must never scroll
- * away, with the trail a tap behind it.
+ * Two layouts rather than one responsive one, because they are different
+ * instruments. Beside the page there is room to keep the clock, the target and
+ * the whole trail open permanently. On a phone there is no column for them, so
+ * it collapses to a strip carrying what must never scroll away, with the trail
+ * a tap behind it.
  */
 export function RunPanel(props: RunPanelProps) {
   return (
@@ -45,70 +45,53 @@ function DesktopPanel({
   startedAt,
   elapsedMs,
   running,
-  canGoBack,
-  onBack,
+  disabled,
+  onJumpTo,
   onGiveUp,
 }: RunPanelProps) {
   const clicks = Math.max(0, trail.length - 1);
 
   return (
     <aside className="sticky top-0 hidden h-dvh w-[18rem] shrink-0 flex-col overflow-y-auto border-l border-line lg:flex xl:w-[20rem]">
-      <Section>
-        <div className="label mb-2.5 flex items-center gap-2">
-          <span
-            className={cn(
-              "size-1.5 rounded-full",
-              running ? "animate-pulse bg-text" : "bg-line-strong",
-            )}
-            aria-hidden
-          />
-          Time
-        </div>
+      <div className="border-b border-line p-5">
+        <div className="label mb-2.5">Time</div>
         <div
-          className="tnum font-mono text-[2.125rem] leading-none font-medium tracking-[-0.04em]"
+          className={cn(
+            "tnum font-mono text-[2.125rem] leading-none font-medium tracking-[-0.04em] transition-colors",
+            !running && "text-muted",
+          )}
           role="timer"
           aria-live="off"
         >
           {formatClock(elapsedMs)}
         </div>
-        <div className="tnum mt-2 font-mono text-xs text-muted">
+        <div className="tnum mt-2.5 font-mono text-xs text-muted">
           {clicks} {clicks === 1 ? "click" : "clicks"}
         </div>
-      </Section>
+      </div>
 
-      <Section>
+      <div className="border-b border-line p-5">
         <div className="label mb-3">Target</div>
         <Target title={puzzle.target} />
-      </Section>
+      </div>
 
-      <Section className="flex-1">
-        <div className="label mb-2.5">Trail</div>
-        <Trail trail={trail} startedAt={startedAt} />
-      </Section>
+      <div className="flex-1 border-b border-line p-5">
+        <div className="label mb-2">Trail</div>
+        <Trail
+          trail={trail}
+          startedAt={startedAt}
+          disabled={disabled}
+          onJumpTo={onJumpTo}
+        />
+      </div>
 
-      <div className="sticky bottom-0 flex gap-2 border-t border-line bg-canvas p-5">
-        <Button size="md" onClick={onBack} disabled={!canGoBack}>
-          <CornerUpLeft className="size-3.5" aria-hidden />
-          Back
-        </Button>
+      <div className="sticky bottom-0 bg-canvas p-5">
         <Button size="md" variant="ghost" onClick={onGiveUp}>
           <Flag className="size-3.5" aria-hidden />
           Give up
         </Button>
       </div>
     </aside>
-  );
-}
-
-function Section({
-  className,
-  children,
-}: {
-  className?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className={cn("border-b border-line p-5", className)}>{children}</div>
   );
 }
 
@@ -121,7 +104,7 @@ function Target({ title }: { title: string }) {
         <img
           src={summary.thumbnail.source}
           alt=""
-          className="mb-2.5 h-24 w-full rounded-[var(--radius-control)] border border-line object-cover"
+          className="mb-3 h-24 w-full rounded-[var(--radius-control)] border border-line object-cover"
         />
       )}
       <div className="text-[1.0625rem] leading-snug font-semibold tracking-[-0.015em]">
@@ -136,13 +119,25 @@ function Target({ title }: { title: string }) {
   );
 }
 
-/** The route so far, newest last, with the time each page was reached. */
+/**
+ * The route so far, and the way back through it.
+ *
+ * Every page except the one you are on is a button that returns you there,
+ * which is why there is no separate back button: stepping back one page is
+ * clicking the row above, and the trail was already on screen. Jumping
+ * truncates the trail, so the route stays an honest record of how the run
+ * actually went rather than everywhere you ever looked.
+ */
 function Trail({
   trail,
   startedAt,
+  disabled,
+  onJumpTo,
 }: {
   trail: TrailEntry[];
   startedAt: number | null;
+  disabled: boolean;
+  onJumpTo: (index: number) => void;
 }) {
   const listRef = useRef<HTMLOListElement>(null);
 
@@ -155,30 +150,39 @@ function Trail({
   if (startedAt === null) return null;
 
   return (
-    <ol ref={listRef} className="max-h-[40vh] overflow-y-auto">
+    <ol ref={listRef} className="-mx-2 max-h-[46vh] overflow-y-auto">
       {trail.map((entry, index) => {
         const current = index === trail.length - 1;
 
         return (
-          <li
-            key={`${entry.title}-${entry.at}`}
-            className="flex items-baseline gap-2.5 py-1"
-          >
-            <span className="tnum w-4 shrink-0 font-mono text-[0.625rem] text-faint">
-              {String(index).padStart(2, "0")}
-            </span>
-            <span
+          <li key={`${entry.title}-${entry.at}`}>
+            <button
+              type="button"
+              disabled={current || disabled}
+              onClick={() => onJumpTo(index)}
+              title={current ? entry.title : `Go back to ${entry.title}`}
               className={cn(
-                "min-w-0 flex-1 truncate text-[0.8125rem]",
-                current ? "font-medium text-text" : "text-muted",
+                "flex w-full items-baseline gap-2.5 rounded-[5px] px-2 py-1.5 text-left transition-colors",
+                current
+                  ? "cursor-default"
+                  : "hover:bg-surface disabled:cursor-default disabled:hover:bg-transparent",
               )}
-              title={entry.title}
             >
-              {entry.title}
-            </span>
-            <span className="tnum shrink-0 font-mono text-[0.625rem] text-faint">
-              {index === 0 ? "—" : formatClock(entry.at - startedAt)}
-            </span>
+              <span className="tnum w-4 shrink-0 font-mono text-[0.625rem] text-faint">
+                {String(index).padStart(2, "0")}
+              </span>
+              <span
+                className={cn(
+                  "min-w-0 flex-1 truncate text-[0.8125rem]",
+                  current ? "font-medium" : "text-muted",
+                )}
+              >
+                {entry.title}
+              </span>
+              <span className="tnum shrink-0 font-mono text-[0.625rem] text-faint">
+                {index === 0 ? "—" : formatClock(entry.at - startedAt)}
+              </span>
+            </button>
           </li>
         );
       })}
@@ -192,8 +196,8 @@ function MobileBar({
   startedAt,
   elapsedMs,
   running,
-  canGoBack,
-  onBack,
+  disabled,
+  onJumpTo,
   onGiveUp,
 }: RunPanelProps) {
   const [open, setOpen] = useState(false);
@@ -209,12 +213,10 @@ function MobileBar({
       >
         <span
           className={cn(
-            "size-1.5 shrink-0 rounded-full",
-            running ? "animate-pulse bg-text" : "bg-line-strong",
+            "tnum shrink-0 font-mono text-[1.1875rem] leading-none font-medium tracking-[-0.03em]",
+            !running && "text-muted",
           )}
-          aria-hidden
-        />
-        <span className="tnum shrink-0 font-mono text-[1.1875rem] leading-none font-medium tracking-[-0.03em]">
+        >
           {formatClock(elapsedMs)}
         </span>
         <span className="tnum shrink-0 font-mono text-[0.625rem] text-faint">
@@ -236,14 +238,18 @@ function MobileBar({
 
       {open && (
         <div className="border-t border-line px-4 py-4">
-          <div className="label mb-2.5">Trail</div>
-          <Trail trail={trail} startedAt={startedAt} />
+          <div className="label mb-2">Trail</div>
+          <Trail
+            trail={trail}
+            startedAt={startedAt}
+            disabled={disabled}
+            onJumpTo={(index) => {
+              onJumpTo(index);
+              setOpen(false);
+            }}
+          />
 
-          <div className="mt-4 flex gap-2">
-            <Button size="md" onClick={onBack} disabled={!canGoBack}>
-              <CornerUpLeft className="size-3.5" aria-hidden />
-              Back
-            </Button>
+          <div className="mt-4">
             <Button size="md" variant="ghost" onClick={onGiveUp}>
               <Flag className="size-3.5" aria-hidden />
               Give up

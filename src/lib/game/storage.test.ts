@@ -2,7 +2,13 @@
  * @vitest-environment jsdom
  */
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { clearRuns, loadRuns, personalBest, saveRun } from "./storage";
+import {
+  clearRuns,
+  loadRuns,
+  personalBest,
+  saveRun,
+  summarizePairings,
+} from "./storage";
 import type { RunRecord } from "./types";
 
 /**
@@ -39,6 +45,7 @@ function run(overrides: Partial<RunRecord> = {}): RunRecord {
     clicks: 1,
     elapsedMs: 7130,
     finishedAt: 1000,
+    completed: true,
     ...overrides,
   };
 }
@@ -81,5 +88,56 @@ describe("personalBest", () => {
   it("ignores other pairings", () => {
     saveRun(run({ id: "a", start: "Apple", elapsedMs: 100 }));
     expect(personalBest("Banana", "Fruit")).toBeNull();
+  });
+
+  it("ignores abandoned runs", () => {
+    // An abandoned run has a duration but was never finished, so it can never
+    // be anyone's best time.
+    saveRun(run({ id: "a", elapsedMs: 100, completed: false }));
+    saveRun(run({ id: "b", finishedAt: 2, elapsedMs: 8000 }));
+
+    expect(personalBest("Banana", "Fruit")?.elapsedMs).toBe(8000);
+  });
+});
+
+describe("summarizePairings", () => {
+  it("collapses repeated attempts into one row per pairing", () => {
+    const summaries = summarizePairings([
+      run({ id: "a", finishedAt: 3, elapsedMs: 5000 }),
+      run({ id: "b", finishedAt: 2, elapsedMs: 9000 }),
+      run({ id: "c", finishedAt: 1, elapsedMs: 7000 }),
+    ]);
+
+    expect(summaries).toHaveLength(1);
+    expect(summaries[0].attempts).toBe(3);
+    expect(summaries[0].best?.elapsedMs).toBe(5000);
+  });
+
+  it("marks a pairing unbeaten when every attempt was abandoned", () => {
+    const summaries = summarizePairings([
+      run({ id: "a", completed: false }),
+      run({ id: "b", finishedAt: 2, completed: false }),
+    ]);
+
+    expect(summaries[0].best).toBeNull();
+    expect(summaries[0].attempts).toBe(2);
+  });
+
+  it("takes the best from wins only, ignoring faster abandoned runs", () => {
+    const summaries = summarizePairings([
+      run({ id: "a", elapsedMs: 500, completed: false }),
+      run({ id: "b", finishedAt: 2, elapsedMs: 6000 }),
+    ]);
+
+    expect(summaries[0].best?.elapsedMs).toBe(6000);
+  });
+
+  it("orders pairings by most recent attempt", () => {
+    const summaries = summarizePairings([
+      run({ id: "a", start: "Old", finishedAt: 10 }),
+      run({ id: "b", start: "New", finishedAt: 99 }),
+    ]);
+
+    expect(summaries.map((s) => s.start)).toEqual(["New", "Old"]);
   });
 });

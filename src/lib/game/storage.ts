@@ -23,7 +23,14 @@ export function loadRuns(): RunRecord[] {
     const raw = window.localStorage.getItem(KEY);
     if (!raw) return [];
     const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as RunRecord[]) : [];
+    if (!Array.isArray(parsed)) return [];
+
+    // Records written before abandoned runs were tracked were only ever saved
+    // on a win, so a missing flag means completed.
+    return (parsed as RunRecord[]).map((run) => ({
+      ...run,
+      completed: run.completed ?? true,
+    }));
   } catch {
     return [];
   }
@@ -93,18 +100,66 @@ export function serverRunsSnapshot(): RunRecord[] {
   return EMPTY;
 }
 
-/** Fastest previous finish for the same pairing, for a personal-best callout. */
+/** Fastest previous win for the same pairing, for a personal-best callout. */
 export function personalBest(
   start: string,
   target: string,
   runs = loadRuns(),
 ): RunRecord | null {
   const matching = runs.filter(
-    (run) => run.start === start && run.target === target,
+    (run) => run.start === start && run.target === target && run.completed,
   );
   if (matching.length === 0) return null;
 
   return matching.reduce((best, run) =>
     run.elapsedMs < best.elapsedMs ? run : best,
   );
+}
+
+export interface PairingSummary {
+  key: string;
+  start: string;
+  target: string;
+  /** Fastest winning attempt, or null if this pairing has never been beaten. */
+  best: RunRecord | null;
+  attempts: number;
+  /** Most recent attempt, used to order the list. */
+  latestAt: number;
+}
+
+/**
+ * Collapse the run history into one row per pairing.
+ *
+ * A pairing can be replayed as often as you like, so a flat list of every
+ * attempt is mostly repetition. Grouping means each row can answer the only
+ * questions worth asking of it — did I ever beat this, and how fast — and
+ * gives the retry button somewhere obvious to live.
+ */
+export function summarizePairings(runs: RunRecord[]): PairingSummary[] {
+  const groups = new Map<string, PairingSummary>();
+
+  for (const run of runs) {
+    const key = `${run.start}|${run.target}`;
+    const existing = groups.get(key);
+
+    if (!existing) {
+      groups.set(key, {
+        key,
+        start: run.start,
+        target: run.target,
+        best: run.completed ? run : null,
+        attempts: 1,
+        latestAt: run.finishedAt,
+      });
+      continue;
+    }
+
+    existing.attempts += 1;
+    existing.latestAt = Math.max(existing.latestAt, run.finishedAt);
+    if (run.completed && (!existing.best || run.elapsedMs < existing.best.elapsedMs)) {
+      existing.best = run;
+    }
+  }
+
+  return [...groups.values()].sort((a, b) => b.latestAt - a.latestAt);
 }
