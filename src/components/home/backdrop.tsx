@@ -96,7 +96,8 @@ export function Backdrop({
             href={`https://en.wikipedia.org/wiki/${titleToPath(term)}`}
             target="_blank"
             rel="noopener noreferrer"
-            tabIndex={position ? undefined : -1}
+            tabIndex={-1}
+            aria-hidden="true"
             className={className}
             style={style}
           >
