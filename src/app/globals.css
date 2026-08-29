@@ -185,6 +185,48 @@
     transform: translate(-50%, -50%) rotate(var(--term-tilt, 0deg));
   }
 
+  /**
+   * Slim, understated scrollbars for the panes that need them.
+   *
+   * The default browser scrollbar is chunky enough to compete with the page
+   * margins, so the long-form article panes use a narrower thumb and a lighter
+   * track instead.
+   */
+  .slim-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--color-backdrop-ink) 28%, transparent)
+      transparent;
+    scrollbar-gutter: stable;
+  }
+
+  .slim-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .slim-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .slim-scrollbar::-webkit-scrollbar-thumb {
+    background-color: color-mix(
+      in srgb,
+      var(--color-backdrop-ink) 28%,
+      transparent
+    );
+    border: 2px solid transparent;
+    border-radius: 9999px;
+    background-clip: padding-box;
+  }
+
+  .slim-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(
+      in srgb,
+      var(--color-backdrop-ink) 40%,
+      transparent
+    );
+  }
+
   /** Keyboard hint chip. */
   .kbd {
     display: inline-flex;

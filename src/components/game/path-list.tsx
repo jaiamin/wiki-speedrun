@@ -67,7 +67,7 @@ export function PathList({
   return (
     <ol
       ref={listRef}
-      className={cn("overflow-y-auto overscroll-contain pr-1", className)}
+      className={cn("slim-scrollbar overflow-y-auto overscroll-contain pr-1", className)}
     >
       {rows.map((row) => {
         const current = row.node.id === currentNodeId;

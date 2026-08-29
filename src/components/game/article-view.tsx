@@ -168,7 +168,7 @@ export function ArticleView({
         <div
           ref={scrollRef}
           data-article-scroll
-          className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain"
+          className="slim-scrollbar min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain"
         >
           {/* Full bleed: the article uses the whole width the run panel leaves. */}
           <div className="px-5 py-8 sm:px-8 sm:py-10 lg:px-12">
@@ -239,7 +239,7 @@ function Contents({
         Contents
       </div>
       <nav
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pt-1 pb-3"
+        className="slim-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pt-1 pb-3"
         aria-label="Article contents"
       >
         {sections.map((section) => (
