@@ -131,12 +131,6 @@ export function ArticleSearch({
         )}
       </div>
 
-      {!value && query.trim() && !loading && results.length === 0 && (
-        <p className="font-display mt-1.5 text-xs font-medium text-[var(--color-backdrop-ink)]/70">
-          No article matches that. Pick one from the list.
-        </p>
-      )}
-
       {open && results.length > 0 && (
         <ul className="absolute z-20 mt-1.5 max-h-60 w-full overflow-y-auto rounded-xl border-2 border-black bg-white py-1 shadow-[0_8px_24px_rgba(11,26,74,0.14)]">
           {results.map((result) => (

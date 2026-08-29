@@ -38,30 +38,49 @@ const SOURCES = [
 const DIFFICULTY_STYLE = {
   easy: {
     Icon: Leaf,
+    fillClass: "[&>path:first-child]:fill-white",
     selected: "border-black bg-[#a9edb9]",
     idle: "border-black/35 bg-white hover:border-black/70",
   },
   medium: {
     Icon: Gauge,
-    selected: "border-black bg-[#8fb9ff]",
+    fillClass: "",
+    selected: "border-black bg-[#73a4ff]",
     idle: "border-black/35 bg-white hover:border-black/70",
   },
   hard: {
     Icon: Flame,
+    fillClass: "[&>path]:fill-white",
     selected: "border-black bg-[#ffc566]",
     idle: "border-black/35 bg-white hover:border-black/70",
   },
   chaos: {
     Icon: Dices,
+    fillClass: "[&>rect]:fill-white",
     selected: "border-black bg-[#ff8fb3]",
     idle: "border-black/35 bg-white hover:border-black/70",
   },
 } as const;
 
 const RUN_LENGTH_META = {
-  1: { label: "Sprint", detail: "1 target", Icon: Zap },
-  3: { label: "Relay", detail: "3 targets", Icon: Milestone },
-  5: { label: "Marathon", detail: "5 targets", Icon: Route },
+  1: {
+    label: "Sprint",
+    detail: "1 target",
+    Icon: Zap,
+    fillClass: "[&>path]:fill-white",
+  },
+  3: {
+    label: "Relay",
+    detail: "3 targets",
+    Icon: Milestone,
+    fillClass: "[&>path:last-child]:fill-white",
+  },
+  5: {
+    label: "Marathon",
+    detail: "5 targets",
+    Icon: Route,
+    fillClass: "[&>circle]:fill-white",
+  },
 } as const;
 
 /**
@@ -189,7 +208,10 @@ export function Home({ backdropTerms }: { backdropTerms: string[] }) {
                           )}
                         >
                           <Icon
-                            className="hidden size-5 shrink-0 stroke-[2.5] sm:block"
+                            className={cn(
+                              "hidden size-5 shrink-0 stroke-[2.5] sm:block",
+                              meta.fillClass,
+                            )}
                             aria-hidden
                           />
                           <span className="leading-none">
@@ -227,7 +249,13 @@ export function Home({ backdropTerms }: { backdropTerms: string[] }) {
                             active ? style.selected : style.idle,
                           )}
                         >
-                          <Icon className="size-4 stroke-[2.5]" aria-hidden />
+                          <Icon
+                            className={cn(
+                              "size-4 stroke-[2.5]",
+                              style.fillClass,
+                            )}
+                            aria-hidden
+                          />
                           <span>{DIFFICULTY_META[id].label}</span>
                         </button>
                       );
@@ -256,7 +284,10 @@ export function Home({ backdropTerms }: { backdropTerms: string[] }) {
                   title="Swap From and To"
                   className="mx-auto size-9 shrink-0 translate-y-2 rounded-full p-0"
                 >
-                  <ArrowUpDown className="size-4 stroke-[2.5]" aria-hidden />
+                  <ArrowUpDown
+                    className="size-4 stroke-[2.5]"
+                    aria-hidden
+                  />
                 </Button>
                 <div className="-mt-1.5">
                   <ArticleSearch
