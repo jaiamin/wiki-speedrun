@@ -6,11 +6,11 @@ import {
   ArrowUpDown,
   Dices,
   Flame,
-  Gauge,
   Leaf,
   Loader2,
   Milestone,
   Route,
+  Shield,
   Zap,
 } from "lucide-react";
 import { ArticleSearch } from "@/components/game/article-search";
@@ -43,8 +43,8 @@ const DIFFICULTY_STYLE = {
     idle: "border-black/35 bg-white hover:border-black/70",
   },
   medium: {
-    Icon: Gauge,
-    fillClass: "",
+    Icon: Shield,
+    fillClass: "[&>path]:fill-white",
     selected: "border-black bg-[#73a4ff]",
     idle: "border-black/35 bg-white hover:border-black/70",
   },
