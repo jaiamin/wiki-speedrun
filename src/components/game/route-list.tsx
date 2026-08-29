@@ -2,6 +2,7 @@
 
 import { Loader2 } from "lucide-react";
 import type { PathResult } from "@/lib/wiki/pathfinder";
+import { cn } from "@/lib/utils";
 
 /**
  * A route rendered as a numbered list rather than a run-on line of arrows.
@@ -18,25 +19,44 @@ export function RouteList({
   muted?: boolean;
 }) {
   return (
-    <ol className="space-y-1">
-      {steps.map((step, index) => (
-        <li key={`${step}-${index}`} className="flex gap-3 text-[0.8125rem]">
-          <span className="tnum w-4 shrink-0 font-mono text-xs text-faint">
-            {String(index).padStart(2, "0")}
-          </span>
-          <span
-            className={
-              index === steps.length - 1 && !muted
-                ? "font-medium"
-                : muted
-                  ? "text-muted"
-                  : undefined
-            }
+    <ol className="space-y-1.5 font-display">
+      {steps.map((step, index) => {
+        const isFirst = index === 0;
+        const isLast = index === steps.length - 1;
+
+        return (
+          <li
+            key={`${step}-${index}`}
+            className="flex items-center gap-2.5 text-[0.875rem]"
           >
-            {step}
-          </span>
-        </li>
-      ))}
+            <span
+              className={cn(
+                "flex size-5 shrink-0 items-center justify-center rounded-full bg-black/5 text-[0.6875rem]",
+                muted
+                  ? "font-normal text-muted"
+                  : "font-bold text-[var(--color-backdrop-ink)]",
+              )}
+            >
+              {index + 1}
+            </span>
+            <span
+              className={cn(
+                "min-w-0 flex-1 truncate",
+                muted
+                  ? "font-normal text-muted"
+                  : isLast
+                    ? "font-bold text-[var(--color-backdrop-ink)]"
+                    : isFirst
+                      ? "font-medium text-text"
+                      : "font-normal text-text",
+              )}
+              title={step}
+            >
+              {step}
+            </span>
+          </li>
+        );
+      })}
     </ol>
   );
 }
@@ -45,8 +65,11 @@ export function RouteList({
 export function ShortestRoute({ route }: { route: PathResult | null }) {
   if (!route) {
     return (
-      <p className="flex items-center gap-2 text-[0.8125rem] text-muted">
-        <Loader2 className="size-3.5 animate-spin" aria-hidden />
+      <p className="font-display flex items-center gap-2 text-sm text-muted">
+        <Loader2
+          className="size-4 animate-spin text-[var(--color-play)]"
+          aria-hidden
+        />
         Searching for the shortest route…
       </p>
     );
@@ -54,20 +77,20 @@ export function ShortestRoute({ route }: { route: PathResult | null }) {
 
   if (!route.path || route.clicks === null) {
     return (
-      <p className="text-[0.8125rem] text-muted">
+      <p className="font-display text-sm text-muted">
         No route found within the search budget.
       </p>
     );
   }
 
   return (
-    <>
-      <p className="mb-2 text-[0.8125rem] text-muted">
-        <span className="tnum font-mono text-text">{route.clicks}</span>{" "}
-        {route.clicks === 1 ? "click" : "clicks"}
-        {route.optimal ? "" : " — best found, may not be shortest"}
-      </p>
+    <div className="font-display">
+      {!route.optimal && (
+        <p className="mb-2 text-xs font-normal text-muted">
+          Best found, may not be shortest
+        </p>
+      )}
       <RouteList steps={route.path} muted />
-    </>
+    </div>
   );
 }

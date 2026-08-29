@@ -143,22 +143,22 @@ export function LinkPreview({ anchor, summary, loading }: LinkPreviewProps) {
       style={{
         position: "fixed",
         left,
-        top: above ? undefined : anchor.bottom + 6,
-        bottom: above ? window.innerHeight - anchor.top + 6 : undefined,
+        top: above ? undefined : anchor.bottom + 8,
+        bottom: above ? window.innerHeight - anchor.top + 8 : undefined,
         width: PREVIEW_WIDTH,
       }}
-      className="pointer-events-none z-40 rounded-[var(--radius-card)] border border-line bg-canvas p-3 shadow-[0_8px_28px_rgba(0,0,0,0.1)]"
+      className="pointer-events-none z-40 rounded-2xl border-2 border-black bg-canvas p-3.5 shadow-[-3px_5px_0_rgba(11,26,74,0.08),0_12px_32px_rgba(10,24,80,0.18)]"
     >
-      <div className="flex gap-2.5">
+      <div className="flex gap-3">
         {summary?.thumbnail && (
           <img
             src={summary.thumbnail.source}
             alt=""
-            className="size-10 shrink-0 rounded-[4px] border border-line object-cover"
+            className="size-11 shrink-0 rounded-xl border border-black/10 object-cover"
           />
         )}
         <div className="min-w-0">
-          <div className="truncate text-[0.8125rem] font-semibold tracking-[-0.011em]">
+          <div className="font-display truncate text-sm font-bold tracking-[-0.011em] text-[var(--color-backdrop-ink)]">
             {anchor.title}
           </div>
           <p className="font-display mt-0.5 line-clamp-3 text-xs leading-relaxed text-muted">

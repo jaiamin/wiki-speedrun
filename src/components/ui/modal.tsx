@@ -39,10 +39,10 @@ export function Modal({
       }}
     >
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-text/20 backdrop-blur-[2px]" />
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-[var(--color-backdrop-ink)]/40 backdrop-blur-xs" />
         <Dialog.Content
           className={cn(
-            "fixed top-1/2 left-1/2 z-50 flex max-h-[88dvh] w-[min(30rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-[12px] border border-line bg-canvas shadow-[0_16px_48px_rgba(0,0,0,0.14)]",
+            "fixed top-1/2 left-1/2 z-50 flex max-h-[88dvh] w-[min(32rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-[22px] border-2 border-black bg-canvas shadow-[-5px_7px_0_rgba(11,26,74,0.1),-16px_30px_70px_-26px_rgba(10,24,80,0.62),-5px_12px_26px_-14px_rgba(10,24,80,0.34),0_2px_8px_rgba(10,24,80,0.14)]",
             className,
           )}
           onOpenAutoFocus={(event) => event.preventDefault()}
@@ -54,28 +54,32 @@ export function Modal({
             if (!onClose) event.preventDefault();
           }}
         >
-          <div className="relative border-b border-line px-6 pt-6 pb-5">
-            {eyebrow && <div className="label mb-2">{eyebrow}</div>}
+          <div className="relative px-6 pt-6 pb-2">
+            {eyebrow && (
+              <div className="font-display mb-1.5 text-xs font-bold tracking-[0.12em] text-[var(--color-backdrop-ink)]/70 uppercase">
+                {eyebrow}
+              </div>
+            )}
             <Dialog.Title asChild>
-              <div>{title}</div>
+              <div className="font-display">{title}</div>
             </Dialog.Title>
 
             {onClose && (
               <Dialog.Close
-                className="absolute top-5 right-5 rounded-[5px] p-1.5 text-muted transition-colors hover:bg-surface hover:text-text"
+                className="absolute top-5 right-5 rounded-full p-1.5 text-muted transition-colors hover:bg-black/5 hover:text-black"
                 aria-label="Close"
               >
-                <X className="size-4" aria-hidden />
+                <X className="size-4 stroke-[2.5]" aria-hidden />
               </Dialog.Close>
             )}
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-3">
             {children}
           </div>
 
           {footer && (
-            <div className="flex flex-wrap items-center gap-2 border-t border-line px-6 py-4">
+            <div className="px-6 pt-6 pb-6">
               {footer}
             </div>
           )}

@@ -20,7 +20,7 @@ export function EndpointCard({ label, title }: EndpointCardProps) {
   const summary = useSummary(title);
 
   return (
-    <div className="rounded-2xl border-2 border-black/25 bg-white p-3 text-center sm:p-4">
+    <div className="rounded-2xl border-2 border-black bg-white p-3 text-center sm:p-4">
       <div className="font-display mb-3 text-xs font-bold tracking-[0.12em] text-[var(--color-backdrop-ink)]/65 uppercase">
         {label}
       </div>

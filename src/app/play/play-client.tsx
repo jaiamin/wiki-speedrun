@@ -10,17 +10,14 @@ import {
 import { useRouter, useSearchParams } from "next/navigation";
 import { Toaster, toast } from "sonner";
 import { ArticleView } from "@/components/game/article-view";
-import { Results } from "@/components/game/results";
+import { GaveUp, Results } from "@/components/game/results";
 import { Reveal } from "@/components/game/reveal";
-import { RouteList, ShortestRoute } from "@/components/game/route-list";
 import {
   RunPanelDesktop,
   RunPanelMobile,
 } from "@/components/game/run-panel";
 import { Button } from "@/components/ui/button";
-import { Modal } from "@/components/ui/modal";
 import { buildRunRecord, useElapsed, useRun } from "@/lib/game/use-run";
-import { useShortestRoute } from "@/lib/game/use-shortest-route";
 import { DIFFICULTIES, type Difficulty, type Puzzle } from "@/lib/game/types";
 
 /**
@@ -303,70 +300,17 @@ function StartingGame() {
  * and seeing that the answer was three clicks away is what makes the next run
  * tempting rather than the last one annoying.
  */
-function GaveUp({
-  stageStart,
-  target,
-  stageIndex,
-  stageCount,
-  trail,
-  onHome,
-  onRetry,
-}: {
-  stageStart: string;
-  target: string;
-  stageIndex: number;
-  stageCount: number;
-  trail: string[];
-  onHome: () => void;
-  onRetry: () => void;
-}) {
-  const shortest = useShortestRoute(stageStart, target);
-
-  return (
-    <Modal
-      open
-      eyebrow="Run abandoned"
-      title={
-        <p className="text-[1.25rem] leading-snug font-semibold tracking-[-0.02em]">
-          {target} stays unbeaten.
-        </p>
-      }
-      footer={
-        <>
-          <Button variant="primary" onClick={onRetry}>
-            Try again
-          </Button>
-          <Button onClick={onHome}>New run</Button>
-        </>
-      }
-    >
-      {stageCount > 1 && (
-        <p className="mb-5 text-[0.8125rem] text-muted">
-          Abandoned on stage {stageIndex + 1} of {stageCount}.
-        </p>
-      )}
-      {trail.length > 1 && (
-        <>
-          <div className="label mb-2.5">How far you got</div>
-          <RouteList steps={trail} />
-        </>
-      )}
-
-      <div className={trail.length > 1 ? "label mt-6 mb-2.5" : "label mb-2.5"}>
-        Shortest route
-      </div>
-      <ShortestRoute route={shortest} />
-    </Modal>
-  );
-}
-
 function MissingPairing({ onHome }: { onHome: () => void }) {
   return (
     <Centered
       title="No pairing in this link"
       body="A run needs a start and a target. Pick one from the home page."
     >
-      <Button variant="primary" onClick={onHome}>
+      <Button
+        variant="play"
+        className="font-display h-11 rounded-full px-6 text-sm font-bold tracking-[0.06em] text-black uppercase"
+        onClick={onHome}
+      >
         Go to home
       </Button>
     </Centered>
@@ -387,10 +331,20 @@ function ErrorPanel({
       title={message}
       body="That page could not be loaded. Take another link from the trail, or start the run over."
     >
-      <Button variant="primary" onClick={onRetry}>
+      <Button
+        variant="play"
+        className="font-display h-11 rounded-full px-6 text-sm font-bold tracking-[0.06em] text-black uppercase"
+        onClick={onRetry}
+      >
         Restart run
       </Button>
-      <Button onClick={onHome}>Go to home</Button>
+      <Button
+        type="button"
+        className="font-display h-11 rounded-full border-2 border-black/35 bg-white px-6 text-sm font-bold tracking-[0.06em] text-black uppercase hover:border-black/70 hover:bg-[#eef3ff]"
+        onClick={onHome}
+      >
+        Go to home
+      </Button>
     </Centered>
   );
 }
@@ -407,13 +361,13 @@ function Centered({
   return (
     <div className="flex min-h-[70dvh] items-center justify-center px-6">
       <div className="max-w-sm text-center">
-        <p className="text-[1.0625rem] font-semibold tracking-[-0.015em]">
+        <p className="font-display text-[1.25rem] font-bold tracking-[-0.015em] text-[var(--color-backdrop-ink)]">
           {title}
         </p>
-        <p className="mt-2 text-[0.8125rem] leading-relaxed text-muted">
+        <p className="font-display mt-2 text-[0.875rem] leading-relaxed text-muted">
           {body}
         </p>
-        <div className="mt-5 flex justify-center gap-2">{children}</div>
+        <div className="mt-6 flex justify-center gap-3">{children}</div>
       </div>
     </div>
   );

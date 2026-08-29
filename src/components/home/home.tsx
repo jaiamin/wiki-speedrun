@@ -161,7 +161,7 @@ export function Home({ backdropTerms }: { backdropTerms: string[] }) {
     <div className="flex min-h-dvh flex-col items-center justify-center px-4 py-10 sm:px-5 sm:py-16">
       <Backdrop terms={backdropTerms} />
 
-      <div className="relative z-10 w-full max-w-[56rem] rounded-[22px] bg-canvas px-6 py-14 shadow-[-5px_7px_0_rgba(11,26,74,0.1),-16px_30px_70px_-26px_rgba(10,24,80,0.62),-5px_12px_26px_-14px_rgba(10,24,80,0.34),0_2px_8px_rgba(10,24,80,0.14)] sm:px-16 sm:py-16">
+      <div className="relative z-10 w-full max-w-[56rem] rounded-[22px] border-2 border-black bg-canvas px-6 py-14 shadow-[-5px_7px_0_rgba(11,26,74,0.1),-16px_30px_70px_-26px_rgba(10,24,80,0.62),-5px_12px_26px_-14px_rgba(10,24,80,0.34),0_2px_8px_rgba(10,24,80,0.14)] sm:px-16 sm:py-16">
         <h1 className="font-display text-center text-[clamp(2.5rem,8vw,4rem)] leading-[0.95] font-semibold tracking-[-0.025em]">
           wiki<span className="text-link underline decoration-[0.11em] underline-offset-[0.13em]">dash</span>.io
         </h1>

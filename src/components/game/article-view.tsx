@@ -227,7 +227,7 @@ function Contents({
         onClick={onExit}
         title="Give up and leave this run"
         aria-label="Give up and leave this run"
-        className="font-display flex h-[4.75rem] shrink-0 items-center border-b border-line bg-canvas px-3.5 text-[1.75rem] font-semibold tracking-[-0.03em] text-[var(--color-backdrop-ink)] transition-opacity hover:opacity-70 xl:px-5 xl:text-[2rem]"
+        className="font-display flex h-[4.75rem] shrink-0 items-center bg-canvas px-3.5 text-[1.75rem] font-semibold tracking-[-0.03em] text-[var(--color-backdrop-ink)] transition-opacity hover:opacity-70 xl:px-5 xl:text-[2rem]"
       >
         wiki
         <span className="text-link underline decoration-[0.11em] underline-offset-[0.13em]">
@@ -247,7 +247,7 @@ function Contents({
             key={`${section.level}-${section.id}`}
             type="button"
             onClick={() => onSelect(section.id)}
-            className={`font-display w-full rounded-lg py-1.5 pr-2 text-left text-[0.8125rem] leading-snug text-muted hover:bg-black/5 hover:text-[var(--color-backdrop-ink)] ${section.level === 3 ? "pl-5" : "pl-2 font-semibold"}`}
+            className={`font-display w-full rounded-xl py-1.5 pr-2.5 text-left text-[0.8125rem] leading-snug text-muted transition-colors hover:bg-black/5 hover:text-[var(--color-backdrop-ink)] ${section.level === 3 ? "pl-5" : "pl-2.5 font-semibold"}`}
           >
             {section.label}
           </button>

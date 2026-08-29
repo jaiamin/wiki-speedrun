@@ -126,7 +126,7 @@ export function PathList({
                     : `Go back to ${row.node.title}`
               }
               className={cn(
-                "flex w-full items-baseline gap-2 rounded-lg px-2 py-1.5 text-left transition-colors",
+                "flex w-full items-baseline gap-2 rounded-xl px-2.5 py-1.5 text-left transition-colors",
                 current && "bg-[var(--color-play)]",
                 reachable && "hover:bg-black/5",
                 !reachable && "cursor-default",

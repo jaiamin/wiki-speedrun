@@ -3,19 +3,17 @@ import {
   Fredoka,
   Geist_Mono,
   Inter_Tight,
-  Source_Serif_4,
+  Nunito,
 } from "next/font/google";
 import "./globals.css";
 
 /**
  * Four faces, four jobs.
  *
- * Inter Tight sets the interface: the tighter widths and spacing hold together
- * at large display sizes, where plain Inter goes loose and generic. Geist Mono
- * carries every number — clean geometric digits with no slab detailing, so the
- * clock reads as an instrument. Fredoka gives the home-screen brand a rounder,
- * more playful voice. Source Serif sets the article, because the encyclopedia
- * is quoted content rather than our own UI.
+ * Inter Tight sets the UI controls. Geist Mono carries clock and numbers.
+ * Fredoka sets bubbly headings, brands, and buttons. Nunito sets the article,
+ * giving Wikipedia text a friendly, rounded bubbly personality while staying
+ * crisp and easy to read.
  */
 const sans = Inter_Tight({
   variable: "--font-sans-face",
@@ -27,10 +25,10 @@ const mono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const serif = Source_Serif_4({
-  variable: "--font-serif-face",
+const reading = Nunito({
+  variable: "--font-reading-face",
   subsets: ["latin"],
-  style: ["normal", "italic"],
+  weight: ["400", "500", "600", "700", "800"],
 });
 
 const display = Fredoka({
@@ -57,7 +55,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${sans.variable} ${mono.variable} ${serif.variable} ${display.variable}`}
+      className={`${sans.variable} ${mono.variable} ${reading.variable} ${display.variable}`}
     >
       <body>{children}</body>
     </html>

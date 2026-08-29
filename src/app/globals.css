@@ -16,7 +16,7 @@
  */
 @theme {
   --color-canvas: #ffffff;
-  --color-surface: #fafafa;
+  --color-surface: #ffffff;
   --color-line: #e7e7e7;
   --color-line-strong: #d8d8d8;
 
@@ -44,7 +44,7 @@
 
   --font-sans: var(--font-sans-face), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-display-face), ui-rounded, system-ui, sans-serif;
-  --font-reading: var(--font-serif-face), Georgia, "Times New Roman", serif;
+  --font-reading: var(--font-reading-face), ui-rounded, "Nunito", system-ui, sans-serif;
   --font-mono: var(--font-mono-face), ui-monospace, "SF Mono", monospace;
 
   --radius-card: 8px;

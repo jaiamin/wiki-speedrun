@@ -58,7 +58,7 @@ export function RunPanelDesktop({
         stacked boxes. That leaves no room for a "Time" label above the clock —
         no loss, since a running monospace timer needs no caption.
       */}
-      <div className="flex h-[4.75rem] shrink-0 items-center gap-3 border-b border-line px-5">
+      <div className="flex h-[4.75rem] shrink-0 items-center gap-3 px-5">
         <Timer
           className={cn(
             "size-6 shrink-0 stroke-[2.25] transition-colors",
@@ -80,8 +80,8 @@ export function RunPanelDesktop({
         remembering mid-run — and it is already the first row of the path
         below — so the space goes to the thing you are actually chasing.
       */}
-      <div className="border-b border-line p-5">
-        <div className="label mb-2.5">
+      <div className="p-5">
+        <div className="font-display mb-2.5 text-sm font-bold tracking-[0.08em] text-[var(--color-backdrop-ink)] uppercase">
           {stageCount > 1
             ? `Target ${stageIndex + 1} of ${stageCount}`
             : "Target"}
@@ -89,8 +89,10 @@ export function RunPanelDesktop({
         <Target title={target} />
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col border-b border-line p-5">
-        <div className="label mb-2.5 shrink-0">Path</div>
+      <div className="flex min-h-0 flex-1 flex-col p-5">
+        <div className="font-display mb-2.5 shrink-0 text-sm font-bold tracking-[0.08em] text-[var(--color-backdrop-ink)] uppercase">
+          Path
+        </div>
         <PathList
           path={path}
           currentNodeId={currentNodeId}
@@ -101,14 +103,17 @@ export function RunPanelDesktop({
         />
       </div>
 
-      <div className="sticky bottom-0 bg-canvas p-5">
+      <div className="sticky bottom-0 flex justify-center bg-canvas p-5">
         <Button
           size="md"
-          variant="ghost"
-          className="font-display font-bold"
+          variant="play"
+          className="w-1/2 rounded-full font-display font-bold"
           onClick={onGiveUp}
         >
-          <Flag className="size-3.5" aria-hidden />
+          <Flag
+            className="size-4 stroke-[2.5] [&>path]:fill-white"
+            aria-hidden
+          />
           Give up
         </Button>
       </div>
@@ -246,12 +251,16 @@ export function RunPanelMobile({
 
       {open && (
         <div className="border-t border-line px-4 py-4">
-          <div className="label mb-2.5">Target</div>
+          <div className="font-display mb-2.5 text-sm font-bold tracking-[0.08em] text-[var(--color-backdrop-ink)] uppercase">
+            Target
+          </div>
           <div className="mb-5">
             <Target title={target} />
           </div>
 
-          <div className="label mb-2.5">Path</div>
+          <div className="font-display mb-2.5 text-sm font-bold tracking-[0.08em] text-[var(--color-backdrop-ink)] uppercase">
+            Path
+          </div>
           <PathList
             path={path}
             currentNodeId={currentNodeId}
@@ -264,9 +273,17 @@ export function RunPanelMobile({
             className="-mx-2 max-h-[15rem]"
           />
 
-          <div className="mt-4">
-            <Button size="md" variant="ghost" onClick={onGiveUp}>
-              <Flag className="size-3.5" aria-hidden />
+          <div className="mt-4 flex justify-center">
+            <Button
+              size="md"
+              variant="play"
+              className="w-1/2 rounded-full font-display font-bold"
+              onClick={onGiveUp}
+            >
+              <Flag
+                className="size-4 stroke-[2.5] [&>path]:fill-white"
+                aria-hidden
+              />
               Give up
             </Button>
           </div>
