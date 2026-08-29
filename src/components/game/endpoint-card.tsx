@@ -3,10 +3,12 @@
 import { BookOpen } from "lucide-react";
 import type { ArticleSummary } from "@/lib/wiki/article";
 import { useSummary } from "@/lib/game/use-summary";
+import { cn } from "@/lib/utils";
 
 interface EndpointCardProps {
   label: string;
   title: string;
+  borderless?: boolean;
 }
 
 /**
@@ -16,11 +18,16 @@ interface EndpointCardProps {
  * other and each needs its own edge to sit inside. The run panel shows only
  * the target and labels it the way it labels Path, so it needs no card.
  */
-export function EndpointCard({ label, title }: EndpointCardProps) {
+export function EndpointCard({ label, title, borderless = false }: EndpointCardProps) {
   const summary = useSummary(title);
 
   return (
-    <div className="rounded-2xl border-2 border-black bg-white p-3 text-center sm:p-4">
+    <div
+      className={cn(
+        "rounded-2xl bg-white p-3 text-center sm:p-4",
+        borderless ? "border-2 border-black/35" : "border-2 border-black",
+      )}
+    >
       <div className="font-display mb-3 text-xs font-bold tracking-[0.12em] text-[var(--color-backdrop-ink)]/65 uppercase">
         {label}
       </div>

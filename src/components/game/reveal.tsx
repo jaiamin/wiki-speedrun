@@ -54,14 +54,14 @@ export function Reveal({
         <div className="mx-auto mt-9 max-w-[34rem]">
           <div className="flex h-[24.75rem] flex-col justify-center sm:h-[22.5rem]">
             <div className="relative grid grid-cols-2 gap-16 sm:gap-20">
-              <EndpointCard label="Source" title={puzzle.start} />
+              <EndpointCard label="Source" title={puzzle.start} borderless />
               <div
                 className="absolute top-1/2 left-1/2 z-10 -translate-x-1/2 -translate-y-1/2"
                 aria-hidden
               >
                 <ArrowRight className="h-7 w-16 stroke-[3.5] text-black sm:w-20" />
               </div>
-              <EndpointCard label="Target" title={puzzle.targets[0]} />
+              <EndpointCard label="Target" title={puzzle.targets[0]} borderless />
             </div>
 
             <div
