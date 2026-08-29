@@ -1,7 +1,7 @@
 import { hashSeed, mulberry32 } from "@/lib/game/random";
 
 /** The maximum number of words the backdrop can place. */
-export const BACKDROP_TERM_COUNT = 220;
+export const BACKDROP_TERM_COUNT = 360;
 export const BACKDROP_WORD_GAP = 10;
 
 export interface BackdropNode {
