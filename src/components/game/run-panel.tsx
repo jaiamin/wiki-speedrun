@@ -5,13 +5,16 @@ import { ChevronDown, Flag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatClock } from "@/lib/game/format";
 import { useSummary } from "@/lib/game/use-summary";
-import type { Puzzle } from "@/lib/game/types";
 import type { TrailEntry } from "@/lib/game/use-run";
 import { cn } from "@/lib/utils";
 
 interface RunPanelProps {
-  puzzle: Puzzle;
+  target: string;
+  stageIndex: number;
+  stageCount: number;
+  stageStartIndex: number;
   trail: TrailEntry[];
+  clicks: number;
   startedAt: number | null;
   elapsedMs: number;
   running: boolean;
@@ -21,27 +24,24 @@ interface RunPanelProps {
 }
 
 /**
- * Everything about the run that is not the article, in a fixed column on the
- * right so the encyclopedia keeps the whole of the rest.
+ * Everything about the run that is not the article, in two layouts, because
+ * they are genuinely different instruments. Beside the page there is room to
+ * keep the clock, the target and the whole trail open permanently; on a phone
+ * there is no column for them, so it collapses to a strip carrying what must
+ * never scroll away, with the trail a tap behind it.
  *
- * Two layouts rather than one responsive one, because they are different
- * instruments. Beside the page there is room to keep the clock, the target and
- * the whole trail open permanently. On a phone there is no column for them, so
- * it collapses to a strip carrying what must never scroll away, with the trail
- * a tap behind it.
+ * They are exported separately rather than wrapped together because their
+ * position in the document differs: the bar has to come *before* the article so
+ * it sits at the top of the stack on a phone, while the panel has to come
+ * *after* it to land in the right-hand column on a wide screen.
  */
-export function RunPanel(props: RunPanelProps) {
-  return (
-    <>
-      <MobileBar {...props} />
-      <DesktopPanel {...props} />
-    </>
-  );
-}
-
-function DesktopPanel({
-  puzzle,
+export function RunPanelDesktop({
+  target,
+  stageIndex,
+  stageCount,
+  stageStartIndex,
   trail,
+  clicks,
   startedAt,
   elapsedMs,
   running,
@@ -49,8 +49,6 @@ function DesktopPanel({
   onJumpTo,
   onGiveUp,
 }: RunPanelProps) {
-  const clicks = Math.max(0, trail.length - 1);
-
   return (
     <aside className="sticky top-0 hidden h-dvh w-[18rem] shrink-0 flex-col overflow-y-auto border-l border-line lg:flex xl:w-[20rem]">
       <div className="border-b border-line p-5">
@@ -71,8 +69,10 @@ function DesktopPanel({
       </div>
 
       <div className="border-b border-line p-5">
-        <div className="label mb-3">Target</div>
-        <Target title={puzzle.target} />
+        <div className="label mb-3">
+          Target {stageIndex + 1} of {stageCount}
+        </div>
+        <Target title={target} />
       </div>
 
       <div className="flex-1 border-b border-line p-5">
@@ -80,6 +80,7 @@ function DesktopPanel({
         <Trail
           trail={trail}
           startedAt={startedAt}
+          minJumpIndex={stageStartIndex}
           disabled={disabled}
           onJumpTo={onJumpTo}
         />
@@ -131,11 +132,13 @@ function Target({ title }: { title: string }) {
 function Trail({
   trail,
   startedAt,
+  minJumpIndex,
   disabled,
   onJumpTo,
 }: {
   trail: TrailEntry[];
   startedAt: number | null;
+  minJumpIndex: number;
   disabled: boolean;
   onJumpTo: (index: number) => void;
 }) {
@@ -153,14 +156,21 @@ function Trail({
     <ol ref={listRef} className="-mx-2 max-h-[46vh] overflow-y-auto">
       {trail.map((entry, index) => {
         const current = index === trail.length - 1;
+        const completedStage = index < minJumpIndex;
 
         return (
           <li key={`${entry.title}-${entry.at}`}>
             <button
               type="button"
-              disabled={current || disabled}
+              disabled={current || completedStage || disabled}
               onClick={() => onJumpTo(index)}
-              title={current ? entry.title : `Go back to ${entry.title}`}
+              title={
+                current
+                  ? entry.title
+                  : completedStage
+                    ? `${entry.title} is in a completed stage`
+                    : `Go back to ${entry.title}`
+              }
               className={cn(
                 "flex w-full items-baseline gap-2.5 rounded-[5px] px-2 py-1.5 text-left transition-colors",
                 current
@@ -190,9 +200,13 @@ function Trail({
   );
 }
 
-function MobileBar({
-  puzzle,
+export function RunPanelMobile({
+  target,
+  stageIndex,
+  stageCount,
+  stageStartIndex,
   trail,
+  clicks,
   startedAt,
   elapsedMs,
   running,
@@ -201,8 +215,6 @@ function MobileBar({
   onGiveUp,
 }: RunPanelProps) {
   const [open, setOpen] = useState(false);
-  const clicks = Math.max(0, trail.length - 1);
-
   return (
     <div className="sticky top-0 z-30 border-b border-line bg-canvas/90 backdrop-blur-md lg:hidden">
       <button
@@ -224,7 +236,10 @@ function MobileBar({
         </span>
 
         <span className="min-w-0 flex-1 truncate pl-2 text-right text-[0.8125rem] font-semibold tracking-[-0.011em]">
-          {puzzle.target}
+          <span className="mr-1.5 text-faint">
+            {stageIndex + 1}/{stageCount}
+          </span>
+          {target}
         </span>
 
         <ChevronDown
@@ -242,6 +257,7 @@ function MobileBar({
           <Trail
             trail={trail}
             startedAt={startedAt}
+            minJumpIndex={stageStartIndex}
             disabled={disabled}
             onJumpTo={(index) => {
               onJumpTo(index);

@@ -87,7 +87,11 @@ export function ArticleSearch({
     <div className="relative">
       <label
         htmlFor={inputId}
-        className={hideLabel ? "sr-only" : "label mb-2 block"}
+        className={
+          hideLabel
+            ? "sr-only"
+            : "font-display mb-2 block text-xs font-bold tracking-[0.12em] text-[var(--color-backdrop-ink)] uppercase"
+        }
       >
         {label}
       </label>
@@ -110,7 +114,7 @@ export function ArticleSearch({
             // Let a click on a suggestion land before the list unmounts.
             blurTimer.current = setTimeout(() => setOpen(false), 120);
           }}
-          className="h-10 w-full rounded-[var(--radius-control)] border border-line bg-canvas px-3 text-sm outline-none placeholder:text-faint focus:border-text"
+          className="font-display h-12 w-full rounded-xl border-2 border-black bg-white px-4 text-[0.9375rem] font-semibold text-[var(--color-backdrop-ink)] caret-[var(--color-play)] outline-none transition-colors placeholder:font-medium placeholder:text-[var(--color-backdrop-ink)]/40 focus:bg-[#eef3ff]"
         />
         {loading ? (
           <Loader2
@@ -128,13 +132,13 @@ export function ArticleSearch({
       </div>
 
       {!value && query.trim() && !loading && results.length === 0 && (
-        <p className="mt-1.5 text-xs text-muted">
+        <p className="font-display mt-1.5 text-xs font-medium text-[var(--color-backdrop-ink)]/70">
           No article matches that. Pick one from the list.
         </p>
       )}
 
       {open && results.length > 0 && (
-        <ul className="absolute z-20 mt-1 max-h-60 w-full overflow-y-auto rounded-[var(--radius-card)] border border-line bg-canvas py-1 shadow-[0_8px_24px_rgba(0,0,0,0.08)]">
+        <ul className="absolute z-20 mt-1.5 max-h-60 w-full overflow-y-auto rounded-xl border-2 border-black bg-white py-1 shadow-[0_8px_24px_rgba(11,26,74,0.14)]">
           {results.map((result) => (
             <li key={result.title}>
               <button
@@ -144,9 +148,9 @@ export function ArticleSearch({
                   if (blurTimer.current) clearTimeout(blurTimer.current);
                   choose(result.title);
                 }}
-                className="block w-full px-3 py-1.5 text-left hover:bg-surface"
+                className="block w-full px-3 py-2 text-left hover:bg-[#eef3ff]"
               >
-                <span className="block truncate text-[0.8125rem]">
+                <span className="font-display block truncate text-[0.8125rem] font-semibold text-[var(--color-backdrop-ink)]">
                   {result.title}
                 </span>
                 {result.description && (

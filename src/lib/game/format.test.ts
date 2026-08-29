@@ -31,16 +31,3 @@ describe("formatDelta", () => {
     expect(formatDelta(-1_080)).toBe("-1.08");
   });
 });
-
-describe("run record identity", () => {
-  // Guards the fix for a run being written to history twice: ids are derived
-  // from the run, so a repeated save is recognisable as a duplicate.
-  it("is deterministic for the same finished run", () => {
-    const id = (finishedAt: number, start: string, target: string) =>
-      `${start}|${target}|${finishedAt}`;
-
-    expect(id(1000, "Banana", "Fruit")).toBe(id(1000, "Banana", "Fruit"));
-    expect(id(1000, "Banana", "Fruit")).not.toBe(id(1001, "Banana", "Fruit"));
-    expect(id(1000, "Banana", "Fruit")).not.toBe(id(1000, "Apple", "Fruit"));
-  });
-});

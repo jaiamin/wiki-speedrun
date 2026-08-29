@@ -1,7 +1,7 @@
 /**
- * Deterministic PRNG so a daily challenge is identical for every player
- * without needing a server to hand it out. `Math.random` cannot do this, and
- * pulling in a seeded-random dependency for thirty lines would be silly.
+ * Deterministic PRNG, so a seeded puzzle is identical for every player without
+ * needing a server to hand it out. `Math.random` cannot do this, and pulling in
+ * a seeded-random dependency for thirty lines would be silly.
  *
  * mulberry32: small, fast, and statistically fine for picking articles.
  */

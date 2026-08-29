@@ -5,11 +5,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Toaster, toast } from "sonner";
 import { ArticleView } from "@/components/game/article-view";
 import { Results } from "@/components/game/results";
+import { Reveal } from "@/components/game/reveal";
 import { RouteList, ShortestRoute } from "@/components/game/route-list";
-import { RunPanel } from "@/components/game/run-panel";
+import {
+  RunPanelDesktop,
+  RunPanelMobile,
+} from "@/components/game/run-panel";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
-import { saveRun } from "@/lib/game/storage";
 import { buildRunRecord, useElapsed, useRun } from "@/lib/game/use-run";
 import { useShortestRoute } from "@/lib/game/use-shortest-route";
 import { DIFFICULTIES, type Difficulty, type Puzzle } from "@/lib/game/types";
@@ -24,28 +27,29 @@ import { DIFFICULTIES, type Difficulty, type Puzzle } from "@/lib/game/types";
 export function PlayClient() {
   const router = useRouter();
   const params = useSearchParams();
-  const { state, begin, go, jumpTo, giveUp } = useRun();
+  const { state, begin, go, jumpTo, revealElapsed, giveUp } = useRun();
   const elapsed = useElapsed(state.startedAt, state.finishedAt);
 
   const start = params.get("start");
-  const target = params.get("target");
+  const targetsKey = params.getAll("target").filter(Boolean).join("\u001f");
   const rawDifficulty = params.get("difficulty") ?? "medium";
-  const daily = params.get("daily");
 
   const puzzle: Puzzle | null = useMemo(() => {
-    if (!start || !target) return null;
+    const targets = targetsKey ? targetsKey.split("\u001f") : [];
+    if (!start || targets.length === 0) return null;
     return {
       start,
-      target,
+      targets,
       difficulty: DIFFICULTIES.includes(rawDifficulty as Difficulty)
         ? (rawDifficulty as Difficulty)
         : "medium",
-      daily,
     };
-  }, [daily, rawDifficulty, start, target]);
+  }, [rawDifficulty, start, targetsKey]);
 
   // Start the run once the URL has been read, and again if the pairing changes.
-  const pairing = puzzle ? `${puzzle.start}→${puzzle.target}` : null;
+  const pairing = puzzle
+    ? [puzzle.start, ...puzzle.targets].join("→")
+    : null;
   useEffect(() => {
     if (!puzzle) return;
     begin(puzzle);
@@ -69,18 +73,14 @@ export function PlayClient() {
     return buildRunRecord({
       puzzle: state.puzzle,
       trail: state.trail,
+      moves: state.moves,
+      completedStages: state.completedStages,
       startedAt: state.startedAt,
       finishedAt: state.finishedAt,
-      completed: state.status === "won",
     });
     // Keyed on finishedAt so the record is rebuilt only when a run ends.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.finishedAt, state.status]);
-
-  // Writing to storage is an external-system effect, not a render concern.
-  useEffect(() => {
-    if (finished) saveRun(finished);
-  }, [finished]);
 
   const goHome = useCallback(() => router.push("/"), [router]);
 
@@ -89,10 +89,53 @@ export function PlayClient() {
     begin(state.puzzle);
   }, [begin, state.puzzle]);
 
+  useEffect(() => {
+    if (
+      state.status !== "playing" ||
+      state.stageIndex === 0 ||
+      !state.puzzle
+    ) {
+      return;
+    }
+
+    toast.success(`Stage ${state.stageIndex} complete`, {
+      description: `Next target: ${state.puzzle.targets[state.stageIndex]}`,
+    });
+  }, [state.puzzle, state.stageIndex, state.status]);
+
   if (!puzzle) return <MissingPairing onHome={goHome} />;
   if (!state.puzzle) return <Booting />;
 
+  // The pairing is shown, and the article loads, before the clock exists.
+  if (state.status === "revealing") {
+    return (
+      <Reveal
+        puzzle={state.puzzle}
+        waiting={state.pending === null && !state.error}
+        onElapsed={revealElapsed}
+      />
+    );
+  }
+
   const visited = state.trail.map((entry) => entry.title);
+  const currentTarget = state.puzzle.targets[state.stageIndex];
+  const stageStartIndex =
+    state.stageStarts[state.stageStarts.length - 1] ?? 0;
+
+  const panelProps = {
+    target: currentTarget,
+    stageIndex: state.stageIndex,
+    stageCount: state.puzzle.targets.length,
+    stageStartIndex,
+    trail: state.trail,
+    clicks: state.moves,
+    startedAt: state.startedAt,
+    elapsedMs: elapsed,
+    running: state.status === "playing" && state.startedAt !== null,
+    disabled: state.loading || state.status !== "playing",
+    onJumpTo: jumpTo,
+    onGiveUp: giveUp,
+  };
 
   return (
     <div className="flex min-h-dvh flex-col lg:flex-row">
@@ -101,6 +144,13 @@ export function PlayClient() {
           <div className="h-full w-1/3 animate-[slide_1s_ease-in-out_infinite] bg-link" />
         </div>
       )}
+
+      {/*
+        Document order is load-bearing: the bar renders before the article so
+        it stacks at the top on a phone, the panel after it so it becomes the
+        right-hand column on a wide screen. Each is hidden at the other size.
+      */}
+      <RunPanelMobile {...panelProps} />
 
       {/* The article takes every pixel the run panel does not. */}
       <main className="min-w-0 flex-1">
@@ -121,16 +171,7 @@ export function PlayClient() {
         )}
       </main>
 
-      <RunPanel
-        puzzle={state.puzzle}
-        trail={state.trail}
-        startedAt={state.startedAt}
-        elapsedMs={elapsed}
-        running={state.status === "playing" && state.startedAt !== null}
-        disabled={state.loading || state.status !== "playing"}
-        onJumpTo={jumpTo}
-        onGiveUp={giveUp}
-      />
+      <RunPanelDesktop {...panelProps} />
 
       {state.status === "won" && finished && (
         <Results record={finished} onPlayAgain={goHome} onRerun={retry} />
@@ -138,7 +179,12 @@ export function PlayClient() {
 
       {state.status === "abandoned" && (
         <GaveUp
-          puzzle={state.puzzle}
+          stageStart={
+            state.trail[stageStartIndex]?.title ?? state.puzzle.start
+          }
+          target={currentTarget}
+          stageIndex={state.stageIndex}
+          stageCount={state.puzzle.targets.length}
           trail={visited}
           onHome={goHome}
           onRetry={retry}
@@ -166,17 +212,23 @@ function Booting() {
  * tempting rather than the last one annoying.
  */
 function GaveUp({
-  puzzle,
+  stageStart,
+  target,
+  stageIndex,
+  stageCount,
   trail,
   onHome,
   onRetry,
 }: {
-  puzzle: Puzzle;
+  stageStart: string;
+  target: string;
+  stageIndex: number;
+  stageCount: number;
   trail: string[];
   onHome: () => void;
   onRetry: () => void;
 }) {
-  const shortest = useShortestRoute(puzzle.start, puzzle.target);
+  const shortest = useShortestRoute(stageStart, target);
 
   return (
     <Modal
@@ -184,7 +236,7 @@ function GaveUp({
       eyebrow="Run abandoned"
       title={
         <p className="text-[1.25rem] leading-snug font-semibold tracking-[-0.02em]">
-          {puzzle.target} stays unbeaten.
+          {target} stays unbeaten.
         </p>
       }
       footer={
@@ -196,6 +248,11 @@ function GaveUp({
         </>
       }
     >
+      {stageCount > 1 && (
+        <p className="mb-5 text-[0.8125rem] text-muted">
+          Abandoned on stage {stageIndex + 1} of {stageCount}.
+        </p>
+      )}
       {trail.length > 1 && (
         <>
           <div className="label mb-2.5">How far you got</div>

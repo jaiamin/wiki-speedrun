@@ -27,10 +27,23 @@
   --color-link: #3366cc;
   --color-visited: #795cb2;
 
+  /*
+   * The action colour is Wikipedia's own unvisited-link blue, saturated up
+   * until it can carry a button. It is the colour of the thing the game is
+   * played with, so the palette stays tied to the subject rather than
+   * borrowing another product's brand.
+   */
+  --color-play: #3a6df5;
+  --color-play-button: #8fb9ff;
+
+  --color-backdrop: #1769ff;
+  --color-backdrop-ink: #0b1a4a;
+
   --color-good: #12703f;
   --color-bad: #b4342a;
 
   --font-sans: var(--font-sans-face), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-display-face), ui-rounded, system-ui, sans-serif;
   --font-reading: var(--font-serif-face), Georgia, "Times New Roman", serif;
   --font-mono: var(--font-mono-face), ui-monospace, "SF Mono", monospace;
 
@@ -53,6 +66,14 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+  }
+
+  button:not(:disabled) {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
   }
 
   /* Numbers must never reflow as they tick. */
@@ -85,6 +106,75 @@
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--color-faint);
+  }
+
+  /**
+   * Colour lifted off the page, rather than a bevelled object drawn on it.
+   *
+   * An earlier pass gave these buttons gradients and a fake bottom edge to
+   * look three-dimensional; it read as a gimmick. What actually makes a
+   * control feel raised is elevation — a soft shadow tinted with the button's
+   * own colour, so it looks like the colour is casting light onto the page —
+   * plus a small lift on hover and a settle back down on press.
+   */
+  .lift {
+    transition:
+      transform 130ms cubic-bezier(0.2, 0.8, 0.3, 1),
+      box-shadow 130ms ease;
+  }
+
+  .lift-play {
+    background: var(--color-play);
+    color: #fff;
+    box-shadow:
+      0 10px 24px -10px color-mix(in srgb, var(--color-play) 70%, transparent),
+      0 2px 5px rgba(16, 16, 16, 0.08);
+  }
+
+  .lift-play:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow:
+      0 18px 34px -12px color-mix(in srgb, var(--color-play) 75%, transparent),
+      0 3px 8px rgba(16, 16, 16, 0.1);
+  }
+
+  .lift-play:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow:
+      0 5px 12px -8px color-mix(in srgb, var(--color-play) 70%, transparent),
+      0 1px 3px rgba(16, 16, 16, 0.08);
+  }
+
+  /**
+   * A word in the backdrop graph.
+   *
+   * Dense navy type creates the wallpaper. The random size changes keep it
+   * from reading like a grid, while low opacity leaves the game card dominant.
+   */
+  .backdrop-term {
+    /*
+     * Keep the smallest words readable on phones while preserving enough size
+     * range for the larger words to feel intentional.
+     */
+    font-size: calc(var(--term-size, 1) * 1rem);
+    letter-spacing: -0.025em;
+    opacity: 0.3;
+    transform: translate(-50%, -50%) rotate(var(--term-tilt, 0deg));
+    transition:
+      color 160ms ease,
+      opacity 160ms ease,
+      transform 160ms cubic-bezier(0.2, 0.8, 0.3, 1),
+      text-decoration-color 160ms ease;
+  }
+
+  .backdrop-term:hover,
+  .backdrop-term:focus-visible {
+    color: #0c2a56;
+    opacity: 0.58;
+    text-decoration: underline;
+    text-decoration-color: currentColor;
+    text-underline-offset: 0.24em;
+    transform: translate(-50%, -50%) rotate(var(--term-tilt, 0deg));
   }
 
   /** Keyboard hint chip. */
@@ -124,5 +214,21 @@
   }
   100% {
     transform: translateX(400%);
+  }
+}
+
+/* Each countdown digit swells in as it replaces the last. */
+@keyframes reveal-count {
+  0% {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
   }
 }

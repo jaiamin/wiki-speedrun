@@ -15,14 +15,7 @@ interface SegmentedProps<T extends string> {
   onChange: (value: T) => void;
 }
 
-/**
- * A segmented control rather than a dropdown.
- *
- * There are only ever three or four choices here, and they are the settings a
- * player changes most often. Laying them out flat makes the whole option space
- * visible at a glance and turns changing difficulty into one click instead of
- * three.
- */
+/** A small set of visible game-mode choices. */
 export function Segmented<T extends string>({
   label,
   options,
@@ -31,7 +24,7 @@ export function Segmented<T extends string>({
 }: SegmentedProps<T>) {
   return (
     <div
-      className="inline-flex rounded-[var(--radius-control)] border border-line bg-surface p-0.5"
+      className="grid w-full grid-cols-2 gap-2.5"
       role="radiogroup"
       aria-label={label}
     >
@@ -44,16 +37,22 @@ export function Segmented<T extends string>({
             type="button"
             role="radio"
             aria-checked={active}
-            title={option.hint}
             onClick={() => onChange(option.value)}
             className={cn(
-              "rounded-[4px] px-3 py-1.5 text-[0.8125rem] font-medium transition-colors",
+              "min-h-[3.25rem] rounded-2xl border-2 px-3 py-2.5 text-center transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-play)]",
               active
-                ? "bg-canvas text-text shadow-[0_1px_2px_rgba(0,0,0,0.08)]"
-                : "text-muted hover:text-text",
+                ? "border-black bg-[var(--color-play-button)] text-black"
+                : "border-black/35 bg-white text-black hover:border-black/70 hover:bg-[#eef3ff]",
             )}
           >
-            {option.label}
+            <span className="font-display block text-base font-bold leading-tight">
+              {option.label}
+            </span>
+            {option.hint && (
+              <span className="mt-1 block text-[0.7rem] leading-tight text-[var(--color-backdrop-ink)]/70">
+                {option.hint}
+              </span>
+            )}
           </button>
         );
       })}

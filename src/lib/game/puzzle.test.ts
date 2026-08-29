@@ -1,22 +1,31 @@
 import { describe, expect, it } from "vitest";
-import { generateDailyPuzzle, generatePuzzle } from "./puzzle";
+import { generatePuzzle } from "./puzzle";
 import { hashSeed, mulberry32 } from "./random";
 
 describe("generatePuzzle", () => {
   it("never pairs an article with itself", () => {
     for (let i = 0; i < 200; i += 1) {
       const puzzle = generatePuzzle("hard");
-      expect(puzzle.start).not.toBe(puzzle.target);
+      expect(puzzle.start).not.toBe(puzzle.targets[0]);
     }
   });
 
   it("avoids pairings where one title contains the other", () => {
     // "France" -> "History of France" is technically a run, but a boring one.
     for (let i = 0; i < 200; i += 1) {
-      const { start, target } = generatePuzzle("medium");
+      const { start, targets } = generatePuzzle("medium");
+      const target = targets[0];
       expect(start.includes(target)).toBe(false);
       expect(target.includes(start)).toBe(false);
     }
+  });
+
+  it("builds distinct checkpoint chains", () => {
+    const puzzle = generatePuzzle("hard", "chain-seed", 5);
+    const chain = [puzzle.start, ...puzzle.targets];
+
+    expect(puzzle.targets).toHaveLength(5);
+    expect(new Set(chain).size).toBe(chain.length);
   });
 
   it("is deterministic when seeded", () => {
@@ -26,24 +35,6 @@ describe("generatePuzzle", () => {
 
     expect(a).toEqual(b);
     expect(a).not.toEqual(c);
-  });
-});
-
-describe("generateDailyPuzzle", () => {
-  it("gives everyone the same pairing on the same day", () => {
-    const date = new Date("2026-08-28T00:00:00Z");
-    const morning = generateDailyPuzzle(date);
-    const evening = generateDailyPuzzle(new Date("2026-08-28T23:59:00Z"));
-
-    expect(morning).toEqual(evening);
-    expect(morning.daily).toBe("2026-08-28");
-  });
-
-  it("changes from day to day", () => {
-    const today = generateDailyPuzzle(new Date("2026-08-28T12:00:00Z"));
-    const tomorrow = generateDailyPuzzle(new Date("2026-08-29T12:00:00Z"));
-
-    expect(today.start).not.toBe(tomorrow.start);
   });
 });
 

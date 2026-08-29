@@ -1,435 +1,301 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, RotateCcw, Shuffle, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Modal } from "@/components/ui/modal";
-import { Segmented } from "@/components/ui/segmented";
+import {
+  ArrowUpDown,
+  Dices,
+  Flame,
+  Gauge,
+  Leaf,
+  Loader2,
+  Milestone,
+  Route,
+  Zap,
+} from "lucide-react";
 import { ArticleSearch } from "@/components/game/article-search";
-import { formatClock } from "@/lib/game/format";
-import { summarizePairings } from "@/lib/game/storage";
-import { useRuns } from "@/lib/game/use-runs";
-import { useSummary } from "@/lib/game/use-summary";
-import { DIFFICULTIES, DIFFICULTY_META } from "@/lib/game/types";
-import type { Difficulty, Puzzle } from "@/lib/game/types";
+import { Backdrop } from "./backdrop";
+import { Button } from "@/components/ui/button";
+import { Segmented } from "@/components/ui/segmented";
+import {
+  DIFFICULTIES,
+  DIFFICULTY_META,
+  RUN_LENGTHS,
+} from "@/lib/game/types";
+import type { Difficulty, Puzzle, RunLength } from "@/lib/game/types";
+import { cn } from "@/lib/utils";
 
-type Mode = "random" | "daily" | "custom";
+type Source = "random" | "custom";
 
-const MODES = [
-  { value: "random", label: "Random", hint: "A fresh pairing every time" },
-  { value: "daily", label: "Daily", hint: "The same pairing for everyone today" },
-  { value: "custom", label: "Custom", hint: "Choose both endpoints yourself" },
+const SOURCES = [
+  {
+    value: "random",
+    label: "Random Run",
+  },
+  { value: "custom", label: "Custom Run" },
 ] as const;
 
-const DIFFICULTY_OPTIONS = DIFFICULTIES.map((id) => ({
-  value: id,
-  label: DIFFICULTY_META[id].label,
-  hint: DIFFICULTY_META[id].blurb,
-}));
+const DIFFICULTY_STYLE = {
+  easy: {
+    Icon: Leaf,
+    selected: "border-black bg-[#a9edb9]",
+    idle: "border-black/35 bg-white hover:border-black/70",
+  },
+  medium: {
+    Icon: Gauge,
+    selected: "border-black bg-[#8fb9ff]",
+    idle: "border-black/35 bg-white hover:border-black/70",
+  },
+  hard: {
+    Icon: Flame,
+    selected: "border-black bg-[#ffc566]",
+    idle: "border-black/35 bg-white hover:border-black/70",
+  },
+  chaos: {
+    Icon: Dices,
+    selected: "border-black bg-[#ff8fb3]",
+    idle: "border-black/35 bg-white hover:border-black/70",
+  },
+} as const;
+
+const RUN_LENGTH_META = {
+  1: { label: "Sprint", detail: "1 target", Icon: Zap },
+  3: { label: "Relay", detail: "3 targets", Icon: Milestone },
+  5: { label: "Marathon", detail: "5 targets", Icon: Route },
+} as const;
 
 /**
- * The home screen.
+ * The front door: everything needed to start a run, on one screen.
  *
- * Everything here sits on one alignment: a fixed label column, then content,
- * rows separated by hairlines. The pairing, the settings and the history all
- * use it, which is what holds the page together without putting anything in a
- * card — cards would draw four borders around each item and still not line
- * anything up.
+ * The pairing is deliberately not shown here. Drawing it on the home page —
+ * with a shuffle button to reject one you dislike — turns the game into
+ * something you audition before playing; being dealt two articles and having to
+ * make them work is the better game. The endpoints appear on the reveal, once
+ * you have committed.
  */
-export function Home() {
+export function Home({ backdropTerms }: { backdropTerms: string[] }) {
   const router = useRouter();
-  const [mode, setMode] = useState<Mode>("random");
+  const [source, setSource] = useState<Source>("random");
+  const [runLength, setRunLength] = useState<RunLength>(1);
   const [difficulty, setDifficulty] = useState<Difficulty>("medium");
-  const [nonce, setNonce] = useState(0);
-  const [rulesOpen, setRulesOpen] = useState(false);
-  const [loaded, setLoaded] = useState<{ key: string; puzzle: Puzzle } | null>(
-    null,
-  );
+  const [starting, setStarting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const [customStart, setCustomStart] = useState("");
   const [customTarget, setCustomTarget] = useState("");
 
-  const key = `${mode}:${difficulty}:${nonce}`;
-
-  useEffect(() => {
-    if (mode === "custom") return;
-
-    let active = true;
-    const query = mode === "daily" ? "daily=1" : `difficulty=${difficulty}`;
-
-    fetch(`/api/puzzle?${query}`)
-      .then((response) => (response.ok ? response.json() : null))
-      .then((data: Puzzle | null) => {
-        if (active && data) setLoaded({ key, puzzle: data });
-      })
-      .catch(() => {
-        // Leaves the rows in their loading state; Shuffle retries.
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [key, mode, difficulty]);
-
-  // Derived rather than stored, so a stale pairing is never shown as current.
-  const puzzle = loaded?.key === key ? loaded.puzzle : null;
-
-  const start = mode === "custom" ? customStart : (puzzle?.start ?? null);
-  const target = mode === "custom" ? customTarget : (puzzle?.target ?? null);
-  const ready = Boolean(start && target && start !== target);
-
-  const startRun = useCallback(
-    (from: string, to: string, meta?: { difficulty?: Difficulty; daily?: string | null }) => {
-      const params = new URLSearchParams({ start: from, target: to });
-      if (meta?.difficulty) params.set("difficulty", meta.difficulty);
-      if (meta?.daily) params.set("daily", meta.daily);
-      router.push(`/play?${params.toString()}`);
-    },
-    [router],
+  const customReady = Boolean(
+    customStart && customTarget && customStart !== customTarget,
   );
+  const ready = source === "random" ? !starting : customReady && !starting;
 
-  const begin = useCallback(() => {
-    if (!start || !target || start === target) return;
-    startRun(start, target, {
-      difficulty: mode === "random" ? difficulty : undefined,
-      daily: mode === "daily" ? puzzle?.daily : undefined,
-    });
-  }, [difficulty, mode, puzzle, start, startRun, target]);
+  const swapCustomEndpoints = useCallback(() => {
+    if (!customReady) return;
+    setCustomStart(customTarget);
+    setCustomTarget(customStart);
+  }, [customReady, customStart, customTarget]);
+
+  const start = useCallback(async () => {
+    if (source === "custom") {
+      if (!customReady) return;
+      router.push(
+        `/play?start=${encodeURIComponent(customStart)}&target=${encodeURIComponent(customTarget)}`,
+      );
+      return;
+    }
+
+    // The puzzle is drawn on click rather than on load, so nothing about the
+    // pairing exists on this screen before you commit to it.
+    setStarting(true);
+    setError(null);
+
+    try {
+      const response = await fetch(
+        `/api/puzzle?difficulty=${difficulty}&stages=${runLength}`,
+      );
+      if (!response.ok) throw new Error("no puzzle");
+      const puzzle = (await response.json()) as Puzzle;
+
+      const playParams = new URLSearchParams({
+        start: puzzle.start,
+        difficulty,
+      });
+      for (const target of puzzle.targets) {
+        playParams.append("target", target);
+      }
+      router.push(`/play?${playParams.toString()}`);
+    } catch {
+      setError("Could not draw a pairing. Try again.");
+      setStarting(false);
+    }
+  }, [
+    customReady,
+    customStart,
+    customTarget,
+    difficulty,
+    router,
+    runLength,
+    source,
+  ]);
 
   return (
-    <div className="min-h-dvh">
-      <header className="border-b border-line">
-        <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-6">
-          <span className="text-[0.9375rem] font-semibold tracking-[-0.015em]">
-            Wiki Speedrun
-          </span>
-          <button
-            type="button"
-            onClick={() => setRulesOpen(true)}
-            className="text-[0.8125rem] text-muted underline-offset-4 hover:text-text hover:underline"
-          >
-            Rules
-          </button>
-        </div>
-      </header>
+    <div className="flex min-h-dvh flex-col items-center justify-center px-4 py-10 sm:px-5 sm:py-16">
+      <Backdrop terms={backdropTerms} />
 
-      <main className="mx-auto max-w-3xl px-6">
-        <section className="pt-16 pb-12">
-          <h1 className="max-w-xl text-[2.5rem] leading-[1.04] font-semibold tracking-[-0.035em] text-balance sm:text-[3rem]">
-            Race between two Wikipedia articles.
-          </h1>
-          <p className="mt-4 max-w-md text-[0.9375rem] leading-relaxed text-muted">
-            Two articles, one clock, and nothing to navigate with but the links
-            in front of you. No search, no address bar, no luck — just how fast
-            you can think your way across the encyclopedia.
-          </p>
-        </section>
+      <div className="relative z-10 w-full max-w-[56rem] rounded-[22px] bg-canvas px-6 py-14 shadow-[-5px_7px_0_rgba(11,26,74,0.1),-16px_30px_70px_-26px_rgba(10,24,80,0.62),-5px_12px_26px_-14px_rgba(10,24,80,0.34),0_2px_8px_rgba(10,24,80,0.14)] sm:px-16 sm:py-16">
+        <h1 className="font-display text-center text-[clamp(2.5rem,8vw,4rem)] leading-[0.95] font-semibold tracking-[-0.025em]">
+          wiki<span className="text-link underline decoration-[0.11em] underline-offset-[0.13em]">dash</span>.io
+        </h1>
 
-        <dl className="border-t border-line">
-          {mode === "custom" ? (
-            <>
-              <Row label="From">
+        <p className="font-display mt-5 text-center text-lg font-medium text-muted">
+          Two articles. One clock. Links only.
+        </p>
+
+        <div className="mx-auto mt-9 max-w-[34rem]">
+          <div className="h-[24.75rem] rounded-[20px] p-4 sm:h-[22.5rem] sm:p-5">
+            <div className="font-display mb-2.5 text-center text-xs font-bold tracking-[0.12em] text-[var(--color-backdrop-ink)] uppercase">
+              Game mode
+            </div>
+            <Segmented
+              label="Pairing source"
+              options={SOURCES}
+              value={source}
+              onChange={(value) => setSource(value)}
+            />
+
+            {source === "random" ? (
+              <>
+                <fieldset className="mt-5">
+                  <legend className="font-display mb-2.5 w-full text-center text-xs font-bold tracking-[0.12em] text-[var(--color-backdrop-ink)] uppercase">
+                    Run length
+                  </legend>
+                  <div className="grid grid-cols-3 gap-2">
+                    {RUN_LENGTHS.map((length) => {
+                      const active = length === runLength;
+                      const meta = RUN_LENGTH_META[length];
+                      const Icon = meta.Icon;
+
+                      return (
+                        <button
+                          key={length}
+                          type="button"
+                          aria-pressed={active}
+                          onClick={() => setRunLength(length)}
+                          className={cn(
+                            "font-display flex min-h-[3.25rem] items-center justify-center gap-1.5 rounded-xl border-2 px-1.5 py-2 text-black transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-play)]",
+                            active
+                              ? "border-black bg-[#ffad4a]"
+                              : "border-black/35 bg-white hover:border-black/70 hover:bg-[#eef3ff]",
+                          )}
+                        >
+                          <Icon
+                            className="hidden size-5 shrink-0 stroke-[2.5] sm:block"
+                            aria-hidden
+                          />
+                          <span className="leading-none">
+                            <span className="block text-sm leading-[1.05] font-bold">
+                              {meta.label}
+                            </span>
+                            <span className="mt-0.5 block text-[0.625rem] leading-none font-medium opacity-65">
+                              {meta.detail}
+                            </span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </fieldset>
+
+                <fieldset className="mt-6">
+                  <legend className="font-display mb-2.5 w-full text-center text-xs font-bold tracking-[0.12em] text-[var(--color-backdrop-ink)] uppercase">
+                    Difficulty
+                  </legend>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    {DIFFICULTIES.map((id) => {
+                      const active = id === difficulty;
+                      const style = DIFFICULTY_STYLE[id];
+                      const Icon = style.Icon;
+
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          aria-pressed={active}
+                          onClick={() => setDifficulty(id)}
+                          className={cn(
+                            "font-display flex min-h-10 items-center justify-center gap-1.5 rounded-xl border-2 px-2 py-2 text-sm font-bold text-black transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-play)]",
+                            active ? style.selected : style.idle,
+                          )}
+                        >
+                          <Icon className="size-4 stroke-[2.5]" aria-hidden />
+                          <span>{DIFFICULTY_META[id].label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="font-display mt-4 min-h-5 text-center text-sm font-medium text-[var(--color-backdrop-ink)]/70">
+                    {DIFFICULTY_META[difficulty].blurb}
+                  </p>
+                </fieldset>
+              </>
+            ) : (
+              <div className="mt-5 flex h-[15rem] flex-col justify-center gap-2.5 sm:h-[13rem]">
                 <ArticleSearch
                   label="From"
-                  hideLabel
                   value={customStart}
                   onChange={setCustomStart}
                   placeholder="Search articles…"
                 />
-              </Row>
-              <Row label="To">
-                <ArticleSearch
-                  label="To"
-                  hideLabel
-                  value={customTarget}
-                  onChange={setCustomTarget}
-                  placeholder="Search articles…"
-                />
-              </Row>
-            </>
-          ) : (
-            <>
-              <Row label="From">
-                <Endpoint title={start} />
-              </Row>
-              <Row label="To">
-                <Endpoint title={target} />
-              </Row>
-            </>
-          )}
-
-          <Row label="Mode">
-            <Segmented
-              label="Mode"
-              options={MODES}
-              value={mode}
-              onChange={(value) => setMode(value)}
-            />
-          </Row>
-
-          {mode === "random" && (
-            <Row label="Difficulty">
-              <div>
-                <Segmented
-                  label="Difficulty"
-                  options={DIFFICULTY_OPTIONS}
-                  value={difficulty}
-                  onChange={(value) => {
-                    setDifficulty(value);
-                    setNonce((count) => count + 1);
-                  }}
-                />
-                <p className="mt-2.5 text-[0.8125rem] text-muted">
-                  {DIFFICULTY_META[difficulty].blurb}
-                </p>
-              </div>
-            </Row>
-          )}
-
-          {mode === "daily" && puzzle?.daily && (
-            <Row label="Date">
-              <p className="text-[0.8125rem] text-muted">
-                <span className="tnum font-mono text-text">{puzzle.daily}</span>
-                . Everyone gets this pairing today.
-              </p>
-            </Row>
-          )}
-        </dl>
-
-        <div className="flex flex-wrap items-center gap-2 py-8">
-          <Button variant="primary" size="lg" disabled={!ready} onClick={begin}>
-            Start run
-          </Button>
-
-          {mode === "random" && (
-            <Button
-              size="lg"
-              onClick={() => setNonce((count) => count + 1)}
-              disabled={!puzzle}
-            >
-              <Shuffle className="size-3.5" aria-hidden />
-              Shuffle
-            </Button>
-          )}
-        </div>
-
-        <History onRetry={startRun} />
-      </main>
-
-      <footer className="mx-auto max-w-3xl px-6 py-10 text-xs text-faint">
-        Article content from Wikipedia, licensed CC BY-SA 4.0. Not affiliated
-        with the Wikimedia Foundation.
-      </footer>
-
-      <RulesModal open={rulesOpen} onClose={() => setRulesOpen(false)} />
-    </div>
-  );
-}
-
-/**
- * One row of the page's grid: label left, content right, hairline beneath.
- * Stacks on narrow screens, where a fixed label column would leave nothing
- * for the content.
- */
-function Row({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="grid gap-x-6 gap-y-2 border-b border-line py-5 sm:grid-cols-[6.5rem_1fr]">
-      <dt className="label pt-1">{label}</dt>
-      <dd className="min-w-0">{children}</dd>
-    </div>
-  );
-}
-
-/**
- * An endpoint, set as type rather than boxed.
- *
- * The blurb earns its place: "Breccia" tells a player nothing about where to
- * aim, and "a rock made of broken fragments" tells them to head for geology.
- */
-function Endpoint({ title }: { title: string | null }) {
-  const summary = useSummary(title);
-
-  if (!title) {
-    return (
-      <div className="flex items-center gap-3" aria-hidden>
-        <div className="size-10 animate-pulse rounded-[5px] bg-surface" />
-        <div className="h-4 w-40 animate-pulse rounded bg-surface" />
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex items-start gap-3">
-      {summary?.thumbnail ? (
-        <img
-          src={summary.thumbnail.source}
-          alt=""
-          className="size-10 shrink-0 rounded-[5px] border border-line object-cover"
-        />
-      ) : (
-        <div
-          className="size-10 shrink-0 rounded-[5px] border border-line bg-surface"
-          aria-hidden
-        />
-      )}
-
-      <div className="min-w-0">
-        <div className="text-[1.0625rem] leading-snug font-semibold tracking-[-0.015em]">
-          {title}
-        </div>
-        <p className="mt-0.5 text-[0.8125rem] leading-relaxed text-muted">
-          {summary?.description ?? summary?.extract?.slice(0, 90) ?? ""}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-const RULES = [
-  {
-    term: "Links only",
-    detail:
-      "Move by clicking links inside the article. Categories, files and external sites are stripped out, so every link you can see is a legal move.",
-  },
-  {
-    term: "No search",
-    detail:
-      "Ctrl+F is disabled and Wikipedia's own search is gone. Finding the target's name on the page would replace the game with a text search.",
-  },
-  {
-    term: "Backtracking",
-    detail:
-      "Every page on your trail is clickable, so you can return to any of them. Doing so drops the pages after it — the trail always shows the route you actually took.",
-  },
-  {
-    term: "Definitions",
-    detail:
-      "Hover a link to see what the article is about before you commit to it. It tells you nothing about the route, only what the title means.",
-  },
-  {
-    term: "The clock",
-    detail:
-      "It starts when the first article finishes loading and stops the instant you land on the target. Redirects count: click USA and you win on United States.",
-  },
-];
-
-function RulesModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title={
-        <p className="text-[1.25rem] font-semibold tracking-[-0.02em]">Rules</p>
-      }
-    >
-      <dl className="space-y-5">
-        {RULES.map((rule) => (
-          <div key={rule.term}>
-            <dt className="text-[0.9375rem] font-semibold tracking-[-0.015em]">
-              {rule.term}
-            </dt>
-            <dd className="mt-1 text-[0.8125rem] leading-relaxed text-muted">
-              {rule.detail}
-            </dd>
-          </div>
-        ))}
-      </dl>
-    </Modal>
-  );
-}
-
-/**
- * Past runs, one row per pairing rather than per attempt.
- *
- * A pairing can be replayed as often as you like, so listing every attempt is
- * mostly repetition. Grouping lets each row answer the two questions worth
- * asking — did I beat this, and how fast — and gives retry somewhere obvious
- * to live.
- */
-function History({
-  onRetry,
-}: {
-  onRetry: (start: string, target: string) => void;
-}) {
-  const runs = useRuns();
-  if (runs.length === 0) return null;
-
-  const pairings = summarizePairings(runs);
-
-  return (
-    <section className="pt-4">
-      <h2 className="label border-b border-line pb-4">Your runs</h2>
-
-      <ul>
-        {pairings.slice(0, 8).map((pairing) => {
-          const beaten = pairing.best !== null;
-
-          return (
-            <li
-              key={pairing.key}
-              className="grid grid-cols-[auto_1fr_auto] items-start gap-x-3 border-b border-line py-4"
-            >
-              {beaten ? (
-                <Check
-                  className="mt-0.5 size-4 text-good"
-                  aria-label="Beaten"
-                />
-              ) : (
-                <X className="mt-0.5 size-4 text-bad" aria-label="Not beaten" />
-              )}
-
-              <div className="min-w-0">
-                <div className="text-[0.875rem]">
-                  <span className="text-muted">{pairing.start}</span>
-                  <span className="mx-1.5 text-faint">→</span>
-                  <span className="font-medium">{pairing.target}</span>
-                </div>
-
-                {pairing.best ? (
-                  <p className="mt-1 text-xs leading-relaxed text-muted">
-                    {pairing.best.trail.join(" › ")}
-                  </p>
-                ) : (
-                  <p className="mt-1 text-xs text-muted">
-                    Not beaten in {pairing.attempts}{" "}
-                    {pairing.attempts === 1 ? "attempt" : "attempts"}.
-                  </p>
-                )}
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="text-right">
-                  <div className="tnum font-mono text-[0.8125rem]">
-                    {pairing.best ? formatClock(pairing.best.elapsedMs) : "—"}
-                  </div>
-                  {pairing.best && (
-                    <div className="tnum font-mono text-[0.625rem] text-faint">
-                      {pairing.best.clicks}{" "}
-                      {pairing.best.clicks === 1 ? "click" : "clicks"}
-                    </div>
-                  )}
-                </div>
-
                 <Button
-                  size="sm"
-                  onClick={() => onRetry(pairing.start, pairing.target)}
-                  aria-label={`Retry ${pairing.start} to ${pairing.target}`}
+                  type="button"
+                  variant="play"
+                  size="md"
+                  disabled={!customReady}
+                  onClick={swapCustomEndpoints}
+                  aria-label="Swap starting and target articles"
+                  title="Swap From and To"
+                  className="mx-auto size-9 shrink-0 translate-y-2 rounded-full p-0"
                 >
-                  <RotateCcw className="size-3" aria-hidden />
-                  Retry
+                  <ArrowUpDown className="size-4 stroke-[2.5]" aria-hidden />
                 </Button>
+                <div className="-mt-1.5">
+                  <ArticleSearch
+                    label="To"
+                    value={customTarget}
+                    onChange={setCustomTarget}
+                    placeholder="Search articles…"
+                  />
+                </div>
               </div>
-            </li>
-          );
-        })}
-      </ul>
-    </section>
+            )}
+          </div>
+
+          <div className="mt-8 flex justify-center">
+            <Button
+              variant="play"
+              size="lg"
+              className="font-display h-[3.25rem] min-w-[12.5rem] rounded-full px-8 text-base font-bold tracking-[0.12em] uppercase"
+              disabled={!ready}
+              onClick={start}
+            >
+              {starting ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" aria-hidden />
+                  Drawing…
+                </>
+              ) : (
+                "Play"
+              )}
+            </Button>
+          </div>
+
+          {error && (
+            <p className="mt-3 text-center text-[0.8125rem] text-bad">
+              {error}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }

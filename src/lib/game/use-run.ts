@@ -12,6 +12,13 @@ export interface TrailEntry {
   at: number;
 }
 
+export interface StageCompletion {
+  target: string;
+  at: number;
+  trailIndex: number;
+  moves: number;
+}
+
 interface RunState {
   puzzle: Puzzle | null;
   status: RunStatus;
@@ -19,7 +26,20 @@ interface RunState {
   trail: TrailEntry[];
   /** Every navigation, including ones later undone — the true effort count. */
   moves: number;
+  /** Zero-based checkpoint currently being pursued. */
+  stageIndex: number;
+  /** Trail index where each stage began. Completed stages cannot be erased. */
+  stageStarts: number[];
+  completedStages: StageCompletion[];
   article: Article | null;
+  /**
+   * The start article, fetched during the reveal and held back until the
+   * countdown finishes — the reveal doubles as a loading screen, so the page
+   * is already warm when the clock starts.
+   */
+  pending: Article | null;
+  /** True once the reveal countdown has elapsed, whether or not the fetch has. */
+  revealElapsed: boolean;
   loading: boolean;
   error: string | null;
   startedAt: number | null;
@@ -30,8 +50,9 @@ type Action =
   | { type: "begin"; puzzle: Puzzle }
   | { type: "loading" }
   | { type: "loaded"; article: Article; mode: "forward" | "back" | "first" }
+  | { type: "revealElapsed" }
   | { type: "failed"; message: string }
-  | { type: "won"; at: number }
+  | { type: "targetReached"; at: number }
   | { type: "abandon" }
   | { type: "reset" };
 
@@ -40,17 +61,49 @@ const initialState: RunState = {
   status: "idle",
   trail: [],
   moves: 0,
+  stageIndex: 0,
+  stageStarts: [],
+  completedStages: [],
   article: null,
+  pending: null,
+  revealElapsed: false,
   loading: false,
   error: null,
   startedAt: null,
   finishedAt: null,
 };
 
+/**
+ * Hand control to the player: the article goes on screen, the trail starts, and
+ * the clock begins — never before, so nobody is charged for our latency or for
+ * the seconds spent looking at the reveal.
+ */
+function beginPlaying(
+  state: RunState,
+  article: Article,
+  now: number,
+): RunState {
+  return {
+    ...state,
+    status: "playing",
+    article,
+    pending: null,
+    revealElapsed: true,
+    trail: [{ title: article.title, at: now }],
+    moves: 0,
+    stageIndex: 0,
+    stageStarts: [0],
+    completedStages: [],
+    startedAt: now,
+    loading: false,
+    error: null,
+  };
+}
+
 function reducer(state: RunState, action: Action): RunState {
   switch (action.type) {
     case "begin":
-      return { ...initialState, puzzle: action.puzzle, status: "playing" };
+      return { ...initialState, puzzle: action.puzzle, status: "revealing" };
 
     case "loading":
       return { ...state, loading: true, error: null };
@@ -59,18 +112,30 @@ function reducer(state: RunState, action: Action): RunState {
       const { article, mode } = action;
       const now = Date.now();
 
-      // Backtracking pops the trail; a forward move that lands somewhere
+      // The first article arriving mid-reveal must not start the run: hold it
+      // until the countdown is done, or start immediately if it already is.
+      if (mode === "first" && state.status === "revealing") {
+        return state.revealElapsed
+          ? beginPlaying(state, article, now)
+          : { ...state, pending: article, loading: false, error: null };
+      }
+
+      // Every remaining load is a move within a running game: `first` only ever
+      // arrives during the reveal, which the guard above already handled.
+      //
+      // Backtracking pops the trail, and a forward move landing somewhere
       // already visited truncates back to that point, so the trail always
       // describes the route actually taken rather than every page seen.
-      const existing = state.trail.findIndex((entry) =>
-        titlesMatch(entry.title, article.title),
-      );
+      const stageStart = state.stageStarts[state.stageStarts.length - 1] ?? 0;
+      const localExisting = state.trail
+        .slice(stageStart)
+        .findIndex((entry) => titlesMatch(entry.title, article.title));
+      const existing =
+        localExisting === -1 ? -1 : stageStart + localExisting;
       const trail: TrailEntry[] =
-        mode === "first"
-          ? [{ title: article.title, at: now }]
-          : existing !== -1
-            ? state.trail.slice(0, existing + 1)
-            : [...state.trail, { title: article.title, at: now }];
+        existing !== -1
+          ? state.trail.slice(0, existing + 1)
+          : [...state.trail, { title: article.title, at: now }];
 
       return {
         ...state,
@@ -78,18 +143,46 @@ function reducer(state: RunState, action: Action): RunState {
         trail,
         loading: false,
         error: null,
-        moves: mode === "first" ? 0 : state.moves + 1,
-        // The clock starts when the first article is on screen, not when the
-        // request was sent — the player should not be charged for our latency.
-        startedAt: mode === "first" ? now : state.startedAt,
+        moves: state.moves + 1,
       };
     }
+
+    case "revealElapsed":
+      return state.pending
+        ? beginPlaying(state, state.pending, Date.now())
+        : { ...state, revealElapsed: true };
 
     case "failed":
       return { ...state, loading: false, error: action.message };
 
-    case "won":
-      return { ...state, status: "won", finishedAt: action.at };
+    case "targetReached": {
+      if (!state.puzzle) return state;
+      const target = state.puzzle.targets[state.stageIndex];
+      if (!target) return state;
+
+      const completion: StageCompletion = {
+        target,
+        at: action.at,
+        trailIndex: state.trail.length - 1,
+        moves: state.moves,
+      };
+      const completedStages = [...state.completedStages, completion];
+      const finalStage = state.stageIndex === state.puzzle.targets.length - 1;
+
+      return finalStage
+        ? {
+            ...state,
+            completedStages,
+            status: "won",
+            finishedAt: action.at,
+          }
+        : {
+            ...state,
+            completedStages,
+            stageIndex: state.stageIndex + 1,
+            stageStarts: [...state.stageStarts, state.trail.length - 1],
+          };
+    }
 
     case "abandon":
       return { ...state, status: "abandoned", finishedAt: Date.now() };
@@ -150,6 +243,11 @@ export function useRun() {
     [navigate],
   );
 
+  const revealElapsed = useCallback(
+    () => dispatch({ type: "revealElapsed" }),
+    [],
+  );
+
   const go = useCallback(
     (title: string) => {
       if (state.status !== "playing") return;
@@ -171,16 +269,21 @@ export function useRun() {
     (index: number) => {
       if (state.status !== "playing") return;
       const entry = state.trail[index];
-      if (!entry || index === state.trail.length - 1) return;
+      const stageStart = state.stageStarts[state.stageStarts.length - 1] ?? 0;
+      if (!entry || index < stageStart || index === state.trail.length - 1) {
+        return;
+      }
       void navigate(entry.title, "back");
     },
-    [navigate, state.status, state.trail],
+    [navigate, state.stageStarts, state.status, state.trail],
   );
 
   const back = useCallback(() => {
     if (state.status !== "playing" || state.trail.length < 2) return;
+    const stageStart = state.stageStarts[state.stageStarts.length - 1] ?? 0;
+    if (state.trail.length - 1 <= stageStart) return;
     void navigate(state.trail[state.trail.length - 2].title, "back");
-  }, [navigate, state.status, state.trail]);
+  }, [navigate, state.stageStarts, state.status, state.trail]);
 
   const giveUp = useCallback(() => dispatch({ type: "abandon" }), []);
   const reset = useCallback(() => dispatch({ type: "reset" }), []);
@@ -192,11 +295,12 @@ export function useRun() {
    */
   useEffect(() => {
     if (state.status !== "playing" || !state.puzzle || !state.article) return;
-    if (!titlesMatch(state.article.title, state.puzzle.target)) return;
-    dispatch({ type: "won", at: Date.now() });
-  }, [state.article, state.puzzle, state.status]);
+    const target = state.puzzle.targets[state.stageIndex];
+    if (!target || !titlesMatch(state.article.title, target)) return;
+    dispatch({ type: "targetReached", at: Date.now() });
+  }, [state.article, state.puzzle, state.stageIndex, state.status]);
 
-  return { state, begin, go, back, jumpTo, giveUp, reset };
+  return { state, begin, go, back, jumpTo, revealElapsed, giveUp, reset };
 }
 
 /**
@@ -226,35 +330,51 @@ export function useElapsed(
   return (finishedAt ?? now) - startedAt;
 }
 
-/**
- * Build the record for a finished run.
- *
- * Deliberately pure — it does not save. Persisting from inside a `useMemo`
- * (where the caller needs this value) would write once per render pass rather
- * than once per run, which is exactly how the same run ended up in the history
- * twice. Saving belongs in an effect, and `saveRun` dedupes on top of that.
- *
- * The id is derived from the run rather than random, so the same finished run
- * always produces the same record and can be recognised as a duplicate.
- */
+/** Gather a finished run into the shape the results screen reads. */
 export function buildRunRecord(state: {
   puzzle: Puzzle;
   trail: TrailEntry[];
+  moves: number;
+  completedStages: StageCompletion[];
   startedAt: number;
   finishedAt: number;
-  completed: boolean;
 }): RunRecord {
+  let previousTrailIndex = 0;
+  let previousAt = state.startedAt;
+  let previousMoves = 0;
+  const stages = state.completedStages.map((completion, index) => {
+    const stage = {
+      start:
+        state.trail[previousTrailIndex]?.title ??
+        (index === 0
+          ? state.puzzle.start
+          : state.completedStages[index - 1].target),
+      target: completion.target,
+      trail: state.trail
+        .slice(previousTrailIndex, completion.trailIndex + 1)
+        .map((entry) => entry.title),
+      clicks: completion.moves - previousMoves,
+      elapsedMs: completion.at - previousAt,
+    };
+
+    previousTrailIndex = completion.trailIndex;
+    previousAt = completion.at;
+    previousMoves = completion.moves;
+    return stage;
+  });
+  const finalTarget = state.puzzle.targets[state.puzzle.targets.length - 1];
+
   const record: RunRecord = {
-    id: `${state.puzzle.start}|${state.puzzle.target}|${state.finishedAt}`,
+    id: `${state.puzzle.start}|${state.puzzle.targets.join("|")}|${state.finishedAt}`,
     start: state.puzzle.start,
-    target: state.puzzle.target,
+    target: finalTarget,
+    targets: state.puzzle.targets,
     difficulty: state.puzzle.difficulty,
-    daily: state.puzzle.daily,
+    stages,
     trail: state.trail.map((entry) => entry.title),
-    clicks: state.trail.length - 1,
+    clicks: state.moves,
     elapsedMs: state.finishedAt - state.startedAt,
     finishedAt: state.finishedAt,
-    completed: state.completed,
   };
 
   return record;

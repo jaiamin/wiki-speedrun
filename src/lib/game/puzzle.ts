@@ -43,6 +43,7 @@ function isTooSimilar(start: string, target: string): boolean {
 export function generatePuzzle(
   difficulty: Difficulty,
   seed?: string,
+  targetCount = 1,
 ): Puzzle {
   const random = seed ? mulberry32(hashSeed(seed)) : Math.random;
 
@@ -53,35 +54,33 @@ export function generatePuzzle(
         ? [CORE, BROAD]
         : [BROAD, BROAD];
 
-  let start = pick(startPool, random);
-  let target = pick(targetPool, random);
+  const start = pick(startPool, random);
+  const targets: string[] = [];
+  const used = new Set([start]);
+  let previous = start;
 
-  // Retry rather than loop forever; the pools are large enough that a handful
-  // of attempts always succeeds.
-  for (let attempt = 0; attempt < 20 && isTooSimilar(start, target); attempt++) {
-    start = pick(startPool, random);
-    target = pick(targetPool, random);
+  for (let stage = 0; stage < targetCount; stage += 1) {
+    let target = pick(targetPool, random);
+
+    // Retry rather than loop forever; the pools are large enough that a
+    // handful of attempts always produces a distinct next checkpoint.
+    for (
+      let attempt = 0;
+      attempt < 40 && (used.has(target) || isTooSimilar(previous, target));
+      attempt += 1
+    ) {
+      target = pick(targetPool, random);
+    }
+
+    targets.push(normalizeTitle(target));
+    used.add(target);
+    previous = target;
   }
 
   return {
     start: normalizeTitle(start),
-    target: normalizeTitle(target),
+    targets,
     difficulty,
-    daily: null,
-  };
-}
-
-/**
- * The daily challenge: same two articles for everyone, derived from the date.
- *
- * Deriving it from a seed instead of storing it means the daily works with no
- * database at all, and stays stable if the app restarts mid-day.
- */
-export function generateDailyPuzzle(date = new Date()): Puzzle {
-  const day = date.toISOString().slice(0, 10);
-  return {
-    ...generatePuzzle("medium", `wiki-speedrun:${day}`),
-    daily: day,
   };
 }
 
@@ -97,7 +96,7 @@ interface RandomResponse {
  * for an unwinnable run. Sampling wide and keeping only well-connected pages
  * is what makes the mode playable rather than merely random.
  */
-export async function generateChaosPuzzle(): Promise<Puzzle> {
+export async function generateChaosPuzzle(targetCount = 1): Promise<Puzzle> {
   const body = await wikiApi<RandomResponse>(
     { action: "query", list: "random", rnnamespace: 0, rnlimit: 30 },
     0,
@@ -116,17 +115,36 @@ export async function generateChaosPuzzle(): Promise<Puzzle> {
 
   // If Wikipedia handed us nothing but stubs, fall back rather than ship a
   // run that cannot be finished.
-  if (playable.length < 2) return generatePuzzle("hard");
+  if (playable.length < targetCount + 1) {
+    return { ...generatePuzzle("hard", undefined, targetCount), difficulty: "chaos" };
+  }
 
-  const start = playable[0];
-  const target =
-    playable.find((title) => !isTooSimilar(start, title)) ?? playable[1];
+  const sequence = [playable[0]];
+  for (let stage = 0; stage < targetCount; stage += 1) {
+    const previous = sequence[sequence.length - 1];
+    const next =
+      playable.find(
+        (title) =>
+          !sequence.includes(title) && !isTooSimilar(previous, title),
+      ) ?? playable.find((title) => !sequence.includes(title));
 
-  return { start, target, difficulty: "chaos", daily: null };
+    if (!next) {
+      return {
+        ...generatePuzzle("hard", undefined, targetCount),
+        difficulty: "chaos",
+      };
+    }
+    sequence.push(next);
+  }
+
+  return { start: sequence[0], targets: sequence.slice(1), difficulty: "chaos" };
 }
 
-export async function createPuzzle(difficulty: Difficulty): Promise<Puzzle> {
+export async function createPuzzle(
+  difficulty: Difficulty,
+  targetCount = 1,
+): Promise<Puzzle> {
   return difficulty === "chaos"
-    ? generateChaosPuzzle()
-    : generatePuzzle(difficulty);
+    ? generateChaosPuzzle(targetCount)
+    : generatePuzzle(difficulty, undefined, targetCount);
 }
