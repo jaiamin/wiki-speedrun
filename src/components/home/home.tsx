@@ -220,56 +220,65 @@ export function Home({ backdropTerms }: { backdropTerms: string[] }) {
         </p>
 
         <div className="mx-auto mt-14 max-w-[42rem]">
-          <div className="relative grid grid-cols-2 gap-10 sm:gap-12">
-            <div
-              className="absolute inset-y-6 left-1/2 w-1 -translate-x-1/2 rounded-full bg-black/18"
-              aria-hidden
-            />
-
-            <div className="space-y-3">
-              <div className="font-display mb-4 text-center text-sm font-bold tracking-[0.08em] text-[var(--color-backdrop-ink)] uppercase">
-                Singleplayer
-              </div>
-              <button
-                type="button"
-                onClick={() => setActiveMode("solo")}
-                className="font-display flex min-h-[6rem] w-full items-center justify-center rounded-[22px] border-2 border-black text-[1.15rem] font-bold tracking-[0.06em] text-black transition-transform hover:-translate-y-0.5 hover:brightness-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-play)]"
-                style={{ backgroundColor: MODE_META.solo.bg }}
-              >
-                Solo Run
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveMode("daily")}
-                className="font-display flex min-h-[6rem] w-full items-center justify-center rounded-[22px] border-2 border-black text-[1.15rem] font-bold tracking-[0.06em] text-black transition-transform hover:-translate-y-0.5 hover:brightness-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-play)]"
-                style={{ backgroundColor: MODE_META.daily.bg }}
-              >
-                Daily Challenge
-              </button>
+          <div className="grid grid-cols-2 gap-x-16 gap-y-6 sm:gap-x-28">
+            <div className="font-display text-center text-base font-bold tracking-[0.08em] text-[var(--color-backdrop-ink)] uppercase">
+              Singleplayer
+            </div>
+            <div className="font-display text-center text-base font-bold tracking-[0.08em] text-[var(--color-backdrop-ink)] uppercase">
+              Party
             </div>
 
-            <div className="space-y-3">
-              <div className="font-display mb-4 text-center text-sm font-bold tracking-[0.08em] text-[var(--color-backdrop-ink)] uppercase">
-                Party
+            <div className="relative col-span-2 grid grid-cols-2 gap-x-16 sm:gap-x-28">
+              <div
+                className="absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 rounded-full bg-black/18"
+                aria-hidden
+              />
+              <div
+                className="font-display absolute top-1/2 left-1/2 z-10 flex size-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-canvas text-sm font-bold tracking-[0.08em] text-[var(--color-backdrop-ink)] uppercase"
+                aria-hidden
+              >
+                Or
               </div>
-              <button
-                type="button"
-                onClick={() => setActiveMode("create")}
-                className="font-display flex min-h-[6rem] w-full items-center justify-center rounded-[22px] border-2 border-black text-[1.15rem] font-bold tracking-[0.06em] text-black transition-transform hover:-translate-y-0.5 hover:brightness-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-play)]"
-                style={{ backgroundColor: MODE_META.create.bg }}
-              >
-                Create Room
-              </button>
 
-              <button
-                type="button"
-                onClick={() => setActiveMode("join")}
-                className="font-display flex min-h-[6rem] w-full items-center justify-center rounded-[22px] border-2 border-black text-[1.15rem] font-bold tracking-[0.06em] text-black transition-transform hover:-translate-y-0.5 hover:brightness-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-play)]"
-                style={{ backgroundColor: MODE_META.join.bg }}
-              >
-                Join Room
-              </button>
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  onClick={() => setActiveMode("solo")}
+                  className="font-display flex min-h-[6rem] w-full items-center justify-center rounded-[22px] border-2 border-black text-[1.15rem] font-bold tracking-[0.06em] text-black transition-transform hover:-translate-y-0.5 hover:brightness-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-play)]"
+                  style={{ backgroundColor: MODE_META.solo.bg }}
+                >
+                  Solo Run
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveMode("daily")}
+                  className="font-display flex min-h-[6rem] w-full items-center justify-center rounded-[22px] border-2 border-black text-[1.15rem] font-bold tracking-[0.06em] text-black transition-transform hover:-translate-y-0.5 hover:brightness-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-play)]"
+                  style={{ backgroundColor: MODE_META.daily.bg }}
+                >
+                  Daily Challenge
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                <button
+                  type="button"
+                  onClick={() => setActiveMode("create")}
+                  className="font-display flex min-h-[6rem] w-full items-center justify-center rounded-[22px] border-2 border-black text-[1.15rem] font-bold tracking-[0.06em] text-black transition-transform hover:-translate-y-0.5 hover:brightness-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-play)]"
+                  style={{ backgroundColor: MODE_META.create.bg }}
+                >
+                  Create Room
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveMode("join")}
+                  className="font-display flex min-h-[6rem] w-full items-center justify-center rounded-[22px] border-2 border-black text-[1.15rem] font-bold tracking-[0.06em] text-black transition-transform hover:-translate-y-0.5 hover:brightness-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-play)]"
+                  style={{ backgroundColor: MODE_META.join.bg }}
+                >
+                  Join Room
+                </button>
+              </div>
             </div>
           </div>
         </div>
