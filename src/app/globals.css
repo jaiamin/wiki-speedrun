@@ -153,6 +153,24 @@
       0 1px 3px rgba(16, 16, 16, 0.08);
   }
 
+  /** Shared rounded underline for every wikidash.io wordmark. */
+  .logo-dash {
+    position: relative;
+    display: inline-block;
+    color: var(--color-link);
+  }
+
+  .logo-dash::after {
+    position: absolute;
+    right: 0;
+    bottom: -0.06em;
+    left: 0;
+    height: 0.1em;
+    border-radius: 9999px;
+    background: currentColor;
+    content: "";
+  }
+
   /**
    * A word in the backdrop graph.
    *

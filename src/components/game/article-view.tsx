@@ -230,9 +230,7 @@ function Contents({
         className="font-display flex h-[4.75rem] shrink-0 items-center bg-canvas px-3.5 text-[1.75rem] font-semibold tracking-[-0.03em] text-[var(--color-backdrop-ink)] transition-opacity hover:opacity-70 xl:px-5 xl:text-[2rem]"
       >
         wiki
-        <span className="text-link underline decoration-[0.11em] underline-offset-[0.13em]">
-          dash
-        </span>
+        <span className="logo-dash">dash</span>
         .io
       </button>
       <div className="font-display px-5 pt-5 pb-2 text-sm font-bold tracking-[0.08em] text-[var(--color-backdrop-ink)] uppercase">

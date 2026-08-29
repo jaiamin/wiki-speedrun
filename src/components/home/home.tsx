@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 
 type Source = "random" | "custom";
 type HomeMode = "solo" | "daily" | "create" | "join";
+type ActiveModal = HomeMode | "help";
 
 const SOURCES = [
   {
@@ -160,7 +161,7 @@ function ModeButton({
  */
 export function Home({ backdropTerms }: { backdropTerms: string[] }) {
   const router = useRouter();
-  const [activeMode, setActiveMode] = useState<HomeMode | null>(null);
+  const [activeMode, setActiveMode] = useState<ActiveModal | null>(null);
   const [source, setSource] = useState<Source>("random");
   const [runLength, setRunLength] = useState<RunLength>(1);
   const [difficulty, setDifficulty] = useState<Difficulty>("medium");
@@ -169,6 +170,17 @@ export function Home({ backdropTerms }: { backdropTerms: string[] }) {
 
   const [customStart, setCustomStart] = useState("");
   const [customTarget, setCustomTarget] = useState("");
+
+  const closeSolo = useCallback(() => {
+    setSource("random");
+    setRunLength(1);
+    setDifficulty("medium");
+    setCustomStart("");
+    setCustomTarget("");
+    setStarting(false);
+    setError(null);
+    setActiveMode(null);
+  }, []);
 
   const customReady = Boolean(
     customStart && customTarget && customStart !== customTarget,
@@ -257,16 +269,28 @@ export function Home({ backdropTerms }: { backdropTerms: string[] }) {
     <div className="flex min-h-dvh flex-col items-center justify-center px-4 py-10 sm:px-5 sm:py-16">
       <Backdrop terms={backdropTerms} />
 
-      <div className="relative z-10 w-full max-w-[56rem] rounded-[22px] border-2 border-black bg-canvas px-5 pt-14 pb-16 shadow-[-5px_7px_0_rgba(11,26,74,0.1),-16px_30px_70px_-26px_rgba(10,24,80,0.62),-5px_12px_26px_-14px_rgba(10,24,80,0.34),0_2px_8px_rgba(10,24,80,0.14)] sm:px-14 sm:pt-16 sm:pb-24">
+      <div className="relative z-10 w-full max-w-[56rem] rounded-[22px] border-2 border-black bg-canvas px-4 pt-14 pb-12 shadow-[-5px_7px_0_rgba(11,26,74,0.1),-16px_30px_70px_-26px_rgba(10,24,80,0.62),-5px_12px_26px_-14px_rgba(10,24,80,0.34),0_2px_8px_rgba(10,24,80,0.14)] sm:px-10 sm:pt-16 sm:pb-20">
+        <Button
+          type="button"
+          variant="secondary"
+          size="md"
+          onClick={() => setActiveMode("help")}
+          aria-label="How to play"
+          title="How to play"
+          className="font-display absolute top-4 right-4 size-9 rounded-full border border-black/20 bg-white p-0 text-base font-bold text-[var(--color-backdrop-ink)]/60 shadow-none hover:border-black/35 hover:bg-black/[0.035] hover:text-[var(--color-backdrop-ink)] sm:top-5 sm:right-5"
+        >
+          ?
+        </Button>
+
         <h1 className="font-display text-center text-[clamp(2.5rem,8vw,4rem)] leading-[0.95] font-semibold tracking-[-0.025em]">
-          wiki<span className="text-link underline decoration-[0.11em] underline-offset-[0.13em]">dash</span>.io
+          wiki<span className="logo-dash">dash</span>.io
         </h1>
 
         <p className="font-display mt-5 text-center text-lg font-medium text-muted">
           Race through Wikipedia. Beat the clock. Links only.
         </p>
 
-        <div className="mx-auto mt-14 max-w-[42rem]">
+        <div className="mx-auto mt-14 max-w-[44rem]">
           <div className="sm:hidden">
             <div className="font-display text-center text-base font-bold tracking-[0.08em] text-[var(--color-backdrop-ink)] uppercase">
               Singleplayer
@@ -278,7 +302,7 @@ export function Home({ backdropTerms }: { backdropTerms: string[] }) {
 
             <div className="my-7 flex items-center gap-3" aria-hidden>
               <div className="h-0.5 flex-1 rounded-full bg-black/18" />
-              <div className="font-display flex size-12 items-center justify-center rounded-full bg-canvas text-sm font-bold tracking-[0.08em] text-[var(--color-backdrop-ink)] uppercase">
+              <div className="font-display flex size-12 items-center justify-center rounded-full bg-canvas text-sm font-bold tracking-[0.08em] text-black/28 uppercase">
                 Or
               </div>
               <div className="h-0.5 flex-1 rounded-full bg-black/18" />
@@ -303,11 +327,11 @@ export function Home({ backdropTerms }: { backdropTerms: string[] }) {
 
             <div className="relative col-span-2 grid grid-cols-2 gap-x-28">
               <div
-                className="absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 rounded-full bg-black/18"
+                className="absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 rounded-full bg-black/14"
                 aria-hidden
               />
               <div
-                className="font-display absolute top-1/2 left-1/2 z-10 flex size-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-canvas text-sm font-bold tracking-[0.08em] text-[var(--color-backdrop-ink)] uppercase"
+                className="font-display absolute top-1/2 left-1/2 z-10 flex size-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-canvas text-sm font-bold tracking-[0.08em] text-black/28 uppercase"
                 aria-hidden
               >
                 Or
@@ -354,11 +378,44 @@ export function Home({ backdropTerms }: { backdropTerms: string[] }) {
       </p>
 
       <Modal
-        open={activeMode === "solo"}
+        open={activeMode === "help"}
         onClose={() => setActiveMode(null)}
-        eyebrow="Solo run"
-        title="Set up a run"
-        className="w-[min(42rem,calc(100vw-2rem))]"
+        title={<span className="text-lg font-semibold">How to play</span>}
+        className="w-[min(34rem,calc(100vw-2rem))]"
+      >
+        <ol className="space-y-4 pb-4">
+          <li className="flex items-start gap-3">
+            <span className="font-display flex size-8 shrink-0 items-center justify-center rounded-full bg-[#e7efff] text-sm font-bold text-[var(--color-backdrop-ink)]">
+              1
+            </span>
+            <p className="font-display pt-1 text-sm leading-relaxed text-[var(--color-backdrop-ink)]/75">
+              Start at the source Wikipedia article.
+            </p>
+          </li>
+          <li className="flex items-start gap-3">
+            <span className="font-display flex size-8 shrink-0 items-center justify-center rounded-full bg-[#e7efff] text-sm font-bold text-[var(--color-backdrop-ink)]">
+              2
+            </span>
+            <p className="font-display pt-1 text-sm leading-relaxed text-[var(--color-backdrop-ink)]/75">
+              Navigate using only links inside each article.
+            </p>
+          </li>
+          <li className="flex items-start gap-3">
+            <span className="font-display flex size-8 shrink-0 items-center justify-center rounded-full bg-[#e7efff] text-sm font-bold text-[var(--color-backdrop-ink)]">
+              3
+            </span>
+            <p className="font-display pt-1 text-sm leading-relaxed text-[var(--color-backdrop-ink)]/75">
+              Reach every target as quickly as you can.
+            </p>
+          </li>
+        </ol>
+      </Modal>
+
+      <Modal
+        open={activeMode === "solo"}
+        onClose={closeSolo}
+        title={<span className="text-lg font-semibold">Solo run</span>}
+        className="h-[30rem] w-[min(42rem,calc(100vw-2rem))]"
         footer={
           <Button
             variant="play"
@@ -373,7 +430,7 @@ export function Home({ backdropTerms }: { backdropTerms: string[] }) {
                 Drawing…
               </>
             ) : (
-              "Play solo"
+              "Play!"
             )}
           </Button>
         }
@@ -483,7 +540,7 @@ export function Home({ backdropTerms }: { backdropTerms: string[] }) {
                 onClick={swapCustomEndpoints}
                 aria-label="Swap starting and target articles"
                 title="Swap From and To"
-                className="mx-auto size-9 shrink-0 translate-y-1 rounded-full p-0"
+                className="mx-auto size-9 shrink-0 translate-y-2 rounded-full p-0"
               >
                 <ArrowUpDown className="size-4 stroke-[2.5]" aria-hidden />
               </Button>
@@ -503,8 +560,7 @@ export function Home({ backdropTerms }: { backdropTerms: string[] }) {
       <Modal
         open={activeMode === "daily"}
         onClose={() => setActiveMode(null)}
-        eyebrow="Daily challenge"
-        title="One run for today"
+        title={<span className="text-lg font-semibold">Daily challenge</span>}
         className="w-[min(38rem,calc(100vw-2rem))]"
         footer={
           <Button
@@ -520,7 +576,7 @@ export function Home({ backdropTerms }: { backdropTerms: string[] }) {
                 Drawing…
               </>
             ) : (
-              "Play daily challenge"
+              "Play!"
             )}
           </Button>
         }
