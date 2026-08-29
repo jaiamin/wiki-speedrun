@@ -1,25 +1,24 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { ChevronDown, Flag } from "lucide-react";
+import { useState } from "react";
+import { BookOpen, ChevronDown, Flag, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { formatClock } from "@/lib/game/format";
+import { PathList } from "@/components/game/path-list";
 import { useSummary } from "@/lib/game/use-summary";
-import type { TrailEntry } from "@/lib/game/use-run";
+import { formatClock } from "@/lib/game/format";
+import type { PathNode } from "@/lib/game/use-run";
 import { cn } from "@/lib/utils";
 
 interface RunPanelProps {
   target: string;
   stageIndex: number;
   stageCount: number;
-  stageStartIndex: number;
-  trail: TrailEntry[];
-  clicks: number;
-  startedAt: number | null;
+  path: PathNode[];
+  currentNodeId: number;
   elapsedMs: number;
   running: boolean;
   disabled: boolean;
-  onJumpTo: (index: number) => void;
+  onJumpTo: (nodeId: number) => void;
   onGiveUp: () => void;
 }
 
@@ -39,55 +38,76 @@ export function RunPanelDesktop({
   target,
   stageIndex,
   stageCount,
-  stageStartIndex,
-  trail,
-  clicks,
-  startedAt,
+  path,
+  currentNodeId,
   elapsedMs,
   running,
   disabled,
   onJumpTo,
   onGiveUp,
 }: RunPanelProps) {
+  // Scrolls rather than clips. The graph takes the remaining height when there
+  // is room and shrinks to its floor when there is not — but on a short window
+  // even that floor overflows, and without a scrollbar the bottom of the panel
+  // would simply be unreachable.
   return (
-    <aside className="sticky top-0 hidden h-dvh w-[18rem] shrink-0 flex-col overflow-y-auto border-l border-line lg:flex xl:w-[20rem]">
-      <div className="border-b border-line p-5">
-        <div className="label mb-2.5">Time</div>
-        <div
+    <aside className="hidden h-full w-[18rem] shrink-0 flex-col overflow-y-auto border-l border-line lg:flex xl:w-[20rem]">
+      {/*
+        Same height as the wordmark and article headers to its left, so the
+        three read as one bar across the top of the page rather than three
+        stacked boxes. That leaves no room for a "Time" label above the clock —
+        no loss, since a running monospace timer needs no caption.
+      */}
+      <div className="flex h-[4.75rem] shrink-0 items-center gap-3 border-b border-line px-5">
+        <Timer
           className={cn(
-            "tnum font-mono text-[2.125rem] leading-none font-medium tracking-[-0.04em] transition-colors",
+            "size-6 shrink-0 stroke-[2.25] transition-colors",
+            running ? "text-[var(--color-backdrop-ink)]/55" : "text-faint",
+          )}
+          aria-hidden
+        />
+        <Clock
+          ms={elapsedMs}
+          className={cn(
+            "font-display text-[2rem] leading-none font-medium tracking-[-0.02em] transition-colors",
             !running && "text-muted",
           )}
-          role="timer"
-          aria-live="off"
-        >
-          {formatClock(elapsedMs)}
-        </div>
-        <div className="tnum mt-2.5 font-mono text-xs text-muted">
-          {clicks} {clicks === 1 ? "click" : "clicks"}
-        </div>
+        />
       </div>
 
+      {/*
+        The target only. Where a run started is neither actionable nor worth
+        remembering mid-run — and it is already the first row of the path
+        below — so the space goes to the thing you are actually chasing.
+      */}
       <div className="border-b border-line p-5">
-        <div className="label mb-3">
-          Target {stageIndex + 1} of {stageCount}
+        <div className="label mb-2.5">
+          {stageCount > 1
+            ? `Target ${stageIndex + 1} of ${stageCount}`
+            : "Target"}
         </div>
         <Target title={target} />
       </div>
 
-      <div className="flex-1 border-b border-line p-5">
-        <div className="label mb-2">Trail</div>
-        <Trail
-          trail={trail}
-          startedAt={startedAt}
-          minJumpIndex={stageStartIndex}
+      <div className="flex min-h-0 flex-1 flex-col border-b border-line p-5">
+        <div className="label mb-2.5 shrink-0">Path</div>
+        <PathList
+          path={path}
+          currentNodeId={currentNodeId}
+          stage={stageIndex}
           disabled={disabled}
           onJumpTo={onJumpTo}
+          className="-mx-2 min-h-0 flex-1"
         />
       </div>
 
       <div className="sticky bottom-0 bg-canvas p-5">
-        <Button size="md" variant="ghost" onClick={onGiveUp}>
+        <Button
+          size="md"
+          variant="ghost"
+          className="font-display font-bold"
+          onClick={onGiveUp}
+        >
           <Flag className="size-3.5" aria-hidden />
           Give up
         </Button>
@@ -96,107 +116,87 @@ export function RunPanelDesktop({
   );
 }
 
-function Target({ title }: { title: string }) {
-  const summary = useSummary(title);
+/**
+ * The running clock.
+ *
+ * Fredoka has no tabular figures — `font-variant-numeric: tabular-nums` is
+ * simply ignored, and its digits range from 11.5px to 17.5px wide at this
+ * size. On a readout that repaints every frame that means the whole clock
+ * shuffles sideways as the hundredths tick over.
+ *
+ * So each digit gets its own box exactly one `ch` wide — the width of a zero
+ * in the current font — and is centred inside it. Punctuation keeps its
+ * natural width. That buys back fixed-width behaviour without giving up the
+ * display face, which mono would have.
+ */
+function Clock({ ms, className }: { ms: number; className?: string }) {
+  const text = formatClock(ms);
 
   return (
-    <div>
-      {summary?.thumbnail && (
-        <img
-          src={summary.thumbnail.source}
-          alt=""
-          className="mb-3 h-24 w-full rounded-[var(--radius-control)] border border-line object-cover"
-        />
-      )}
-      <div className="text-[1.0625rem] leading-snug font-semibold tracking-[-0.015em]">
-        {title}
-      </div>
-      {summary?.description && (
-        <p className="font-display mt-1 text-[0.8125rem] leading-relaxed text-muted">
-          {summary.description}
-        </p>
-      )}
+    <div
+      className={className}
+      role="timer"
+      aria-live="off"
+      aria-label={text}
+    >
+      {text.split("").map((character, index) => (
+        <span
+          key={index}
+          aria-hidden
+          className={
+            character >= "0" && character <= "9"
+              ? "inline-block w-[1ch] text-center"
+              : "inline-block"
+          }
+        >
+          {character}
+        </span>
+      ))}
     </div>
   );
 }
 
 /**
- * The route so far, and the way back through it.
+ * The target, set directly on the panel rather than in a card.
  *
- * Every page except the one you are on is a button that returns you there,
- * which is why there is no separate back button: stepping back one page is
- * clicking the row above, and the trail was already on screen. Jumping
- * truncates the trail, so the route stays an honest record of how the run
- * actually went rather than everywhere you ever looked.
+ * The boxed treatment belongs to the reveal, where two endpoints face each
+ * other and each needs its own edge to sit inside. Here there is only one, and
+ * a section label above it — the same shape as Path below — says what it is
+ * without drawing a frame around it.
  */
-function Trail({
-  trail,
-  startedAt,
-  minJumpIndex,
-  disabled,
-  onJumpTo,
-}: {
-  trail: TrailEntry[];
-  startedAt: number | null;
-  minJumpIndex: number;
-  disabled: boolean;
-  onJumpTo: (index: number) => void;
-}) {
-  const listRef = useRef<HTMLOListElement>(null);
-
-  // Keep the page you are actually on in view as the run grows.
-  useEffect(() => {
-    const list = listRef.current;
-    list?.scrollTo({ top: list.scrollHeight, behavior: "smooth" });
-  }, [trail.length]);
-
-  if (startedAt === null) return null;
+function Target({ title }: { title: string }) {
+  const summary = useSummary(title);
 
   return (
-    <ol ref={listRef} className="-mx-2 max-h-[46vh] overflow-y-auto">
-      {trail.map((entry, index) => {
-        const current = index === trail.length - 1;
-        const completedStage = index < minJumpIndex;
+    <div className="flex items-center gap-3">
+      <div className="size-[4.5rem] shrink-0 overflow-hidden rounded-xl bg-black/5">
+        {summary?.thumbnail ? (
+          <img
+            src={summary.thumbnail.source}
+            alt=""
+            className="size-full object-cover"
+          />
+        ) : (
+          <div className="flex size-full items-center justify-center">
+            <BookOpen
+              className="size-7 stroke-[1.75] text-[var(--color-backdrop-ink)]/45"
+              aria-label="Article image unavailable"
+            />
+          </div>
+        )}
+      </div>
 
-        return (
-          <li key={`${entry.title}-${entry.at}`}>
-            <button
-              type="button"
-              disabled={current || completedStage || disabled}
-              onClick={() => onJumpTo(index)}
-              title={
-                current
-                  ? entry.title
-                  : completedStage
-                    ? `${entry.title} is in a completed stage`
-                    : `Go back to ${entry.title}`
-              }
-              className={cn(
-                "flex w-full items-baseline gap-2.5 rounded-[5px] px-2 py-1.5 text-left transition-colors",
-                current
-                  ? "cursor-default"
-                  : "hover:bg-surface disabled:cursor-default disabled:hover:bg-transparent",
-              )}
-            >
-              <span className="tnum w-4 shrink-0 font-mono text-[0.625rem] text-faint">
-                {String(index).padStart(2, "0")}
-              </span>
-              <span
-                className={cn(
-                  "min-w-0 flex-1 truncate text-[0.8125rem]",
-                  current ? "font-medium" : "text-muted",
-                )}
-              >
-                {entry.title}
-              </span>
-              <span className="tnum shrink-0 font-mono text-[0.625rem] text-faint">
-                {index === 0 ? "—" : formatClock(entry.at - startedAt)}
-              </span>
-            </button>
-          </li>
-        );
-      })}
-    </ol>
+      <div className="min-w-0 flex-1">
+        <div className="font-display line-clamp-2 text-[1.125rem] leading-tight font-bold text-[var(--color-backdrop-ink)]">
+          {title}
+        </div>
+        {summary?.description && (
+          <p className="font-display mt-1 line-clamp-2 text-[0.75rem] leading-snug text-muted">
+            {summary.description}
+          </p>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -204,10 +204,8 @@ export function RunPanelMobile({
   target,
   stageIndex,
   stageCount,
-  stageStartIndex,
-  trail,
-  clicks,
-  startedAt,
+  path,
+  currentNodeId,
   elapsedMs,
   running,
   disabled,
@@ -216,26 +214,21 @@ export function RunPanelMobile({
 }: RunPanelProps) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="sticky top-0 z-30 border-b border-line bg-canvas/90 backdrop-blur-md lg:hidden">
+    <div className="z-30 shrink-0 border-b border-line bg-canvas/90 backdrop-blur-md lg:hidden">
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
         className="flex w-full items-center gap-3 px-4 py-2.5 text-left"
       >
-        <span
+        <Clock
+          ms={elapsedMs}
           className={cn(
-            "tnum shrink-0 font-mono text-[1.1875rem] leading-none font-medium tracking-[-0.03em]",
+            "font-display shrink-0 text-[1.1875rem] leading-none font-medium tracking-[-0.02em]",
             !running && "text-muted",
           )}
-        >
-          {formatClock(elapsedMs)}
-        </span>
-        <span className="tnum shrink-0 font-mono text-[0.625rem] text-faint">
-          {clicks}
-        </span>
-
-        <span className="min-w-0 flex-1 truncate pl-2 text-right text-[0.8125rem] font-semibold tracking-[-0.011em]">
+        />
+        <span className="font-display min-w-0 flex-1 truncate pl-2 text-right text-[0.8125rem] font-semibold tracking-[-0.01em]">
           <span className="mr-1.5 text-faint">
             {stageIndex + 1}/{stageCount}
           </span>
@@ -253,16 +246,22 @@ export function RunPanelMobile({
 
       {open && (
         <div className="border-t border-line px-4 py-4">
-          <div className="label mb-2">Trail</div>
-          <Trail
-            trail={trail}
-            startedAt={startedAt}
-            minJumpIndex={stageStartIndex}
+          <div className="label mb-2.5">Target</div>
+          <div className="mb-5">
+            <Target title={target} />
+          </div>
+
+          <div className="label mb-2.5">Path</div>
+          <PathList
+            path={path}
+            currentNodeId={currentNodeId}
+            stage={stageIndex}
             disabled={disabled}
-            onJumpTo={(index) => {
-              onJumpTo(index);
+            onJumpTo={(nodeId) => {
+              onJumpTo(nodeId);
               setOpen(false);
             }}
+            className="-mx-2 max-h-[15rem]"
           />
 
           <div className="mt-4">

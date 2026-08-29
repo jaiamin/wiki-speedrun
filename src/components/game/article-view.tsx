@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import type { Article } from "@/lib/wiki/article";
+import type { ArticleSection } from "@/lib/wiki/sanitize";
 import { normalizeTitle } from "@/lib/wiki/titles";
 import { LinkPreview, useLinkPreview } from "./link-preview";
 
@@ -13,6 +14,8 @@ interface ArticleViewProps {
   /** Enforces the classic wikiracing rule against in-page search. */
   blockFind: boolean;
   onBlockedFind: () => void;
+  /** Leaving mid-run is giving up, so the wordmark does exactly that. */
+  onExit: () => void;
 }
 
 /**
@@ -29,6 +32,7 @@ export function ArticleView({
   onNavigate,
   blockFind,
   onBlockedFind,
+  onExit,
 }: ArticleViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -123,37 +127,132 @@ export function ArticleView({
 
   if (!article) return null;
 
+  const scrollToSection = (id: string) => {
+    const scroller = scrollRef.current;
+    if (!scroller) return;
+
+    const heading = [...(containerRef.current?.querySelectorAll<HTMLElement>(
+      "h2[id], h3[id]",
+    ) ?? [])].find((candidate) => candidate.id === id);
+    if (!heading) return;
+
+    const top =
+      heading.getBoundingClientRect().top -
+      scroller.getBoundingClientRect().top +
+      scroller.scrollTop -
+      24;
+    scroller.scrollTo({ top, behavior: "smooth" });
+  };
+
   return (
-    <div ref={scrollRef} data-article-scroll>
-      {/* Full bleed: the article uses the whole width the run panel leaves. */}
-      <div className="px-5 py-9 sm:px-8 sm:py-12 lg:px-12">
-        <header className="mb-7">
-          <h1 className="text-[1.75rem] leading-tight font-semibold tracking-[-0.021em] sm:text-[2rem]">
+    <div className="flex h-full overflow-hidden">
+      <Contents
+        sections={article.sections}
+        onSelect={scrollToSection}
+        onExit={onExit}
+      />
+
+      <div className="flex h-full min-w-0 flex-1 flex-col">
+        <header className="flex h-[4.25rem] shrink-0 items-center border-b border-line px-5 sm:h-[4.75rem] sm:px-8 lg:px-12">
+          {/*
+            Fredoka rather than the UI sans: the title is the one piece of the
+            game's own voice on a page otherwise given over to Wikipedia's.
+            It carries less negative tracking than Inter Tight wants — a
+            rounded face goes cramped when it is pulled in that far.
+          */}
+          <h1 className="font-display truncate text-[1.5rem] leading-tight font-semibold tracking-[-0.01em] sm:text-[1.75rem]">
             {article.title}
           </h1>
-          {article.redirectedFrom && (
-            <p className="mt-1.5 text-xs text-muted">
-              Redirected from {article.redirectedFrom}
-            </p>
-          )}
         </header>
 
         <div
-          ref={containerRef}
-          className="article"
-          onClick={handleClick}
-          {...handlers}
-          dangerouslySetInnerHTML={{ __html: article.html }}
-        />
-      </div>
+          ref={scrollRef}
+          data-article-scroll
+          className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain"
+        >
+          {/* Full bleed: the article uses the whole width the run panel leaves. */}
+          <div className="px-5 py-8 sm:px-8 sm:py-10 lg:px-12">
+            {article.redirectedFrom && (
+              <p className="mb-6 text-xs text-muted">
+                Redirected from {article.redirectedFrom}
+              </p>
+            )}
 
-      {preview && (
-        <LinkPreview
-          anchor={preview.anchor}
-          summary={preview.summary}
-          loading={preview.loading}
-        />
-      )}
+            <div
+              ref={containerRef}
+              className="article"
+              onClick={handleClick}
+              {...handlers}
+              dangerouslySetInnerHTML={{ __html: article.html }}
+            />
+          </div>
+
+          {preview && (
+            <LinkPreview
+              anchor={preview.anchor}
+              summary={preview.summary}
+              loading={preview.loading}
+            />
+          )}
+        </div>
+      </div>
     </div>
+  );
+}
+
+function Contents({
+  sections,
+  onSelect,
+  onExit,
+}: {
+  sections: ArticleSection[];
+  onSelect: (id: string) => void;
+  onExit: () => void;
+}) {
+  return (
+    <aside className="hidden h-full w-[11.5rem] shrink-0 flex-col border-r border-line bg-surface/55 lg:flex xl:w-[13.5rem]">
+      {/*
+        The header height is shared with the article header beside it so the
+        rule across the top stays unbroken — the wordmark grows into that
+        height rather than changing it, and the padding tightens to buy the
+        width the larger size needs inside a 13rem column.
+      */}
+      {/*
+        The wordmark is the way out. There is no other route off this page
+        while a run is live, and leaving one is giving up — so it does that
+        rather than silently discarding the run.
+      */}
+      <button
+        type="button"
+        onClick={onExit}
+        title="Give up and leave this run"
+        aria-label="Give up and leave this run"
+        className="font-display flex h-[4.75rem] shrink-0 items-center border-b border-line bg-canvas px-3.5 text-[1.75rem] font-semibold tracking-[-0.03em] text-[var(--color-backdrop-ink)] transition-opacity hover:opacity-70 xl:px-5 xl:text-[2rem]"
+      >
+        wiki
+        <span className="text-link underline decoration-[0.11em] underline-offset-[0.13em]">
+          dash
+        </span>
+        .io
+      </button>
+      <div className="font-display px-5 pt-5 pb-2 text-sm font-bold tracking-[0.08em] text-[var(--color-backdrop-ink)] uppercase">
+        Contents
+      </div>
+      <nav
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pt-1 pb-3"
+        aria-label="Article contents"
+      >
+        {sections.map((section) => (
+          <button
+            key={`${section.level}-${section.id}`}
+            type="button"
+            onClick={() => onSelect(section.id)}
+            className={`font-display w-full rounded-lg py-1.5 pr-2 text-left text-[0.8125rem] leading-snug text-muted hover:bg-black/5 hover:text-[var(--color-backdrop-ink)] ${section.level === 3 ? "pl-5" : "pl-2 font-semibold"}`}
+          >
+            {section.label}
+          </button>
+        ))}
+      </nav>
+    </aside>
   );
 }

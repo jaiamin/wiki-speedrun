@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect } from "react";
-import { ArrowRight, BookOpen, Dices } from "lucide-react";
+import { ArrowRight, Dices } from "lucide-react";
 import { Backdrop } from "@/components/home/backdrop";
+import { EndpointCard } from "@/components/game/endpoint-card";
 import { Button } from "@/components/ui/button";
-import { useSummary } from "@/lib/game/use-summary";
 import type { Puzzle } from "@/lib/game/types";
 
 const REVEAL_DURATION_MS = 3000;
@@ -54,14 +54,14 @@ export function Reveal({
         <div className="mx-auto mt-9 max-w-[34rem]">
           <div className="flex h-[24.75rem] flex-col justify-center sm:h-[22.5rem]">
             <div className="relative grid grid-cols-2 gap-16 sm:gap-20">
-              <Endpoint label="Source" title={puzzle.start} />
+              <EndpointCard label="Source" title={puzzle.start} />
               <div
                 className="absolute top-1/2 left-1/2 z-10 -translate-x-1/2 -translate-y-1/2"
                 aria-hidden
               >
                 <ArrowRight className="h-7 w-16 stroke-[3.5] text-black sm:w-20" />
               </div>
-              <Endpoint label="Target" title={puzzle.targets[0]} />
+              <EndpointCard label="Target" title={puzzle.targets[0]} />
             </div>
 
             <div
@@ -110,44 +110,6 @@ export function Reveal({
           )}
         </div>
       </div>
-    </div>
-  );
-}
-
-function Endpoint({ label, title }: { label: string; title: string }) {
-  const summary = useSummary(title);
-
-  return (
-    <div className="rounded-2xl border-2 border-black/25 bg-white p-3 text-center sm:p-4">
-      <div className="font-display mb-3 text-xs font-bold tracking-[0.12em] text-[var(--color-backdrop-ink)]/65 uppercase">
-        {label}
-      </div>
-
-      <div className="mx-auto mb-3 size-20 overflow-hidden rounded-xl bg-black/5 sm:size-24">
-        {summary?.thumbnail ? (
-          <img
-            src={summary.thumbnail.source}
-            alt=""
-            className="size-full object-cover"
-          />
-        ) : (
-          <div className="flex size-full items-center justify-center">
-            <BookOpen
-              className="size-8 stroke-[1.75] text-[var(--color-backdrop-ink)]/45 sm:size-9"
-              aria-label="Article image unavailable"
-            />
-          </div>
-        )}
-      </div>
-
-      <div className="font-display line-clamp-2 text-base leading-tight font-bold text-[var(--color-backdrop-ink)] sm:text-lg">
-        {title}
-      </div>
-      {summary?.description && (
-        <p className="font-display mt-1.5 line-clamp-2 text-xs leading-relaxed text-muted">
-          {summary.description}
-        </p>
-      )}
     </div>
   );
 }

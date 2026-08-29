@@ -33,7 +33,8 @@ import { DIFFICULTIES, type Difficulty, type Puzzle } from "@/lib/game/types";
 export function PlayClient({ backdropTerms }: { backdropTerms: string[] }) {
   const router = useRouter();
   const params = useSearchParams();
-  const { state, begin, restart, go, jumpTo, revealElapsed, giveUp } = useRun();
+  const { state, begin, restart, go, jumpToNode, revealElapsed, giveUp } =
+    useRun();
   const elapsed = useElapsed(state.startedAt, state.finishedAt);
   const [rerolling, setRerolling] = useState(false);
   const [rerollError, setRerollError] = useState<string | null>(null);
@@ -212,78 +213,87 @@ export function PlayClient({ backdropTerms }: { backdropTerms: string[] }) {
     target: currentTarget,
     stageIndex: state.stageIndex,
     stageCount: state.puzzle.targets.length,
-    stageStartIndex,
-    trail: state.trail,
-    clicks: state.moves,
-    startedAt: state.startedAt,
+    path: state.path,
+    currentNodeId: state.currentNodeId,
     elapsedMs: elapsed,
     running: state.status === "playing" && state.startedAt !== null,
     disabled: state.loading || state.status !== "playing",
-    onJumpTo: jumpTo,
+    onJumpTo: jumpToNode,
     onGiveUp: giveUp,
   };
 
   return (
-    <div className="flex min-h-dvh flex-col lg:flex-row">
-      {state.loading && (
-        <div className="pointer-events-none fixed inset-x-0 top-0 z-40 h-0.5 overflow-hidden">
-          <div className="h-full w-1/3 animate-[slide_1s_ease-in-out_infinite] bg-link" />
-        </div>
-      )}
+    <div className="h-dvh overflow-hidden bg-[var(--color-backdrop)] p-2">
+      <div className="relative flex h-[calc(100dvh-1rem)] flex-col overflow-clip rounded-[18px] bg-canvas shadow-[0_4px_0_rgba(11,26,74,0.12)] lg:flex-row">
+        {state.loading && (
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-40 h-0.5 overflow-hidden">
+            <div className="h-full w-1/3 animate-[slide_1s_ease-in-out_infinite] bg-link" />
+          </div>
+        )}
 
-      {/*
-        Document order is load-bearing: the bar renders before the article so
-        it stacks at the top on a phone, the panel after it so it becomes the
-        right-hand column on a wide screen. Each is hidden at the other size.
-      */}
-      <RunPanelMobile {...panelProps} />
+        {/*
+          Document order is load-bearing: the bar renders before the article so
+          it stacks at the top on a phone, the panel after it so it becomes the
+          right-hand column on a wide screen. Each is hidden at the other size.
+        */}
+        <RunPanelMobile {...panelProps} />
 
-      {/* The article takes every pixel the run panel does not. */}
-      <main className="min-w-0 flex-1">
-        {state.error ? (
-          <ErrorPanel message={state.error} onHome={goHome} onRetry={retry} />
-        ) : (
-          <ArticleView
-            article={state.article}
-            visited={visited}
-            onNavigate={go}
-            blockFind
-            onBlockedFind={() =>
-              toast("Find is disabled", {
-                description: "Read the page and pick a link — that is the game.",
-              })
+        {/* The article takes every pixel the run panel does not. */}
+        <main className="min-h-0 min-w-0 flex-1 overflow-hidden">
+          {state.error ? (
+            <ErrorPanel message={state.error} onHome={goHome} onRetry={retry} />
+          ) : (
+            <ArticleView
+              article={state.article}
+              visited={visited}
+              onNavigate={go}
+              blockFind
+              onExit={giveUp}
+              onBlockedFind={() =>
+                toast("Find is disabled", {
+                  description:
+                    "Read the page and pick a link — that is the game.",
+                })
+              }
+            />
+          )}
+        </main>
+
+        <RunPanelDesktop {...panelProps} />
+
+        {state.status === "won" && finished && (
+          <Results record={finished} onPlayAgain={goHome} onRerun={retry} />
+        )}
+
+        {state.status === "abandoned" && (
+          <GaveUp
+            stageStart={
+              state.trail[stageStartIndex]?.title ?? state.puzzle.start
             }
+            target={currentTarget}
+            stageIndex={state.stageIndex}
+            stageCount={state.puzzle.targets.length}
+            trail={visited}
+            onHome={goHome}
+            onRetry={retry}
           />
         )}
-      </main>
 
-      <RunPanelDesktop {...panelProps} />
-
-      {state.status === "won" && finished && (
-        <Results record={finished} onPlayAgain={goHome} onRerun={retry} />
-      )}
-
-      {state.status === "abandoned" && (
-        <GaveUp
-          stageStart={
-            state.trail[stageStartIndex]?.title ?? state.puzzle.start
-          }
-          target={currentTarget}
-          stageIndex={state.stageIndex}
-          stageCount={state.puzzle.targets.length}
-          trail={visited}
-          onHome={goHome}
-          onRetry={retry}
-        />
-      )}
-
-      <Toaster position="top-center" />
+        <Toaster position="top-center" />
+      </div>
     </div>
   );
 }
 
 function StartingGame() {
-  return <div className="min-h-dvh bg-canvas" aria-label="Preparing run" />;
+  return (
+    <div
+      className="h-dvh overflow-hidden bg-[var(--color-backdrop)] p-2"
+      aria-label="Preparing run"
+    >
+      <div className="h-[calc(100dvh-1rem)] rounded-[18px] bg-canvas" />
+    </div>
+  );
 }
 
 /**

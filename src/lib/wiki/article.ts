@@ -1,6 +1,6 @@
 import { WikiError, wikiApi, wikiJson } from "./client";
 import { CACHE, WIKI_REST } from "./config";
-import { sanitizeArticle } from "./sanitize";
+import { sanitizeArticle, type ArticleSection } from "./sanitize";
 import { normalizeTitle, titleToPath } from "./titles";
 
 export interface Article {
@@ -9,6 +9,7 @@ export interface Article {
   pageId: number;
   html: string;
   links: string[];
+  sections: ArticleSection[];
   /** True when the requested title redirected somewhere else. */
   redirectedFrom: string | null;
 }
@@ -75,7 +76,7 @@ export async function getArticle(rawTitle: string): Promise<Article> {
 
   if (!body.parse) throw new WikiError(`No such article: ${requested}`, 404);
 
-  const { html, links } = sanitizeArticle(body.parse.text);
+  const { html, links, sections } = sanitizeArticle(body.parse.text);
   const title = normalizeTitle(body.parse.title);
 
   const article: Article = {
@@ -83,6 +84,7 @@ export async function getArticle(rawTitle: string): Promise<Article> {
     pageId: body.parse.pageid,
     html,
     links,
+    sections,
     redirectedFrom: title === requested ? null : requested,
   };
 

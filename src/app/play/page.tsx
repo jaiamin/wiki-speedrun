@@ -13,7 +13,11 @@ export default function PlayPage() {
 
   return (
     <Suspense
-      fallback={<div className="min-h-dvh bg-canvas" />}
+      fallback={
+        <div className="h-dvh overflow-hidden bg-[var(--color-backdrop)] p-2">
+          <div className="h-[calc(100dvh-1rem)] rounded-[18px] bg-canvas" />
+        </div>
+      }
     >
       <PlayClient backdropTerms={backdropTerms} />
     </Suspense>

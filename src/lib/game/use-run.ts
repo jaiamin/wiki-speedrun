@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import type { Article } from "@/lib/wiki/article";
+import { toArticle } from "@/lib/wiki/article-payload";
 import { titlesMatch } from "@/lib/wiki/titles";
 import type { Puzzle, RunRecord, RunStatus } from "./types";
 
@@ -10,6 +11,24 @@ export interface TrailEntry {
   title: string;
   /** Epoch ms the article finished loading — the segment's split time. */
   at: number;
+}
+
+/**
+ * One page in the path graph.
+ *
+ * The graph is append-only: backtracking moves a cursor rather than deleting
+ * anything, so a branch you abandoned stays on the map and can be returned to.
+ * That is the whole difference between a trail and a path — a trail is where
+ * you are, a path is everywhere you have been and how those places connect.
+ */
+export interface PathNode {
+  id: number;
+  title: string;
+  /** Null only for the page the run started on. */
+  parentId: number | null;
+  at: number;
+  /** The stage being pursued when this page was reached. */
+  stage: number;
 }
 
 export interface StageCompletion {
@@ -22,8 +41,15 @@ export interface StageCompletion {
 interface RunState {
   puzzle: Puzzle | null;
   status: RunStatus;
-  /** Pages currently on the route, start first. Backtracking pops from here. */
+  /**
+   * The current route: the chain of pages from the start to where you are.
+   * Derived from `path` on every move, so the two can never disagree.
+   */
   trail: TrailEntry[];
+  /** Every page visited, including abandoned branches. Never shrinks. */
+  path: PathNode[];
+  currentNodeId: number;
+  nextNodeId: number;
   /** Every navigation, including ones later undone — the true effort count. */
   moves: number;
   /** Zero-based checkpoint currently being pursued. */
@@ -48,7 +74,13 @@ type Action =
   | { type: "begin"; puzzle: Puzzle; reveal: boolean }
   | { type: "restart" }
   | { type: "loading" }
-  | { type: "loaded"; article: Article; mode: "forward" | "back" | "first" }
+  | {
+      type: "loaded";
+      article: Article;
+      mode: "forward" | "back" | "first";
+      /** Set when returning to a specific node, including on another branch. */
+      nodeId?: number;
+    }
   | { type: "revealElapsed" }
   | { type: "failed"; message: string }
   | { type: "targetReached"; at: number }
@@ -59,6 +91,9 @@ const initialState: RunState = {
   puzzle: null,
   status: "idle",
   trail: [],
+  path: [],
+  currentNodeId: 0,
+  nextNodeId: 1,
   moves: 0,
   stageIndex: 0,
   stageStarts: [],
@@ -73,6 +108,23 @@ const initialState: RunState = {
   startedAt: null,
   finishedAt: null,
 };
+
+/** Walk from a node up to the root, oldest first. */
+function chainTo(path: PathNode[], id: number): PathNode[] {
+  const byId = new Map(path.map((node) => [node.id, node]));
+  const chain: PathNode[] = [];
+
+  let cursor = byId.get(id);
+  while (cursor) {
+    chain.unshift(cursor);
+    cursor = cursor.parentId === null ? undefined : byId.get(cursor.parentId);
+  }
+
+  return chain;
+}
+
+const asTrail = (nodes: PathNode[]): TrailEntry[] =>
+  nodes.map((node) => ({ title: node.title, at: node.at }));
 
 /**
  * Hand control to the player: the article goes on screen, the trail starts, and
@@ -93,6 +145,17 @@ function beginPlaying(
     revealElapsed: true,
     showReveal: false,
     trail: [{ title: article.title, at: now }],
+    path: [
+      {
+        id: 0,
+        title: article.title,
+        parentId: null,
+        at: now,
+        stage: 0,
+      },
+    ],
+    currentNodeId: 0,
+    nextNodeId: 1,
     moves: 0,
     stageIndex: 0,
     stageStarts: [0],
@@ -124,7 +187,7 @@ function reducer(state: RunState, action: Action): RunState {
       return { ...state, loading: true, error: null };
 
     case "loaded": {
-      const { article, mode } = action;
+      const { article, mode, nodeId } = action;
       const now = Date.now();
 
       if (mode === "first" && state.status === "revealing") {
@@ -133,26 +196,67 @@ function reducer(state: RunState, action: Action): RunState {
           : { ...state, pending: article, loading: false, error: null };
       }
 
-      // Every remaining load is a move within a running game.
-      //
-      // Backtracking pops the trail, and a forward move landing somewhere
-      // already visited truncates back to that point, so the trail always
-      // describes the route actually taken rather than every page seen.
-      const stageStart = state.stageStarts[state.stageStarts.length - 1] ?? 0;
-      const localExisting = state.trail
-        .slice(stageStart)
-        .findIndex((entry) => titlesMatch(entry.title, article.title));
-      const existing =
-        localExisting === -1 ? -1 : stageStart + localExisting;
-      const trail: TrailEntry[] =
-        existing !== -1
-          ? state.trail.slice(0, existing + 1)
-          : [...state.trail, { title: article.title, at: now }];
+      /*
+       * Work out which node this landing corresponds to. In order:
+       *
+       *   1. An explicit node — the player clicked a page on the graph, which
+       *      may sit on a branch they walked away from.
+       *   2. A page already behind them on this stage's route, which is a
+       *      backtrack: move the cursor up rather than adding a duplicate.
+       *   3. A branch off the current page they have taken before, which is
+       *      re-entering it — reuse that node so the graph does not sprout a
+       *      second identical child every time.
+       *   4. Anything else is new ground.
+       */
+      let path = state.path;
+      let nextNodeId = state.nextNodeId;
+      let currentNodeId: number;
+
+      const explicit =
+        nodeId === undefined
+          ? undefined
+          : path.find((node) => node.id === nodeId);
+
+      const ancestor = chainTo(path, state.currentNodeId).find(
+        (node) =>
+          node.stage === state.stageIndex &&
+          titlesMatch(node.title, article.title),
+      );
+
+      const revisitedChild = path.find(
+        (node) =>
+          node.parentId === state.currentNodeId &&
+          titlesMatch(node.title, article.title),
+      );
+
+      if (explicit) {
+        currentNodeId = explicit.id;
+      } else if (ancestor) {
+        currentNodeId = ancestor.id;
+      } else if (revisitedChild) {
+        currentNodeId = revisitedChild.id;
+      } else {
+        currentNodeId = nextNodeId;
+        path = [
+          ...path,
+          {
+            id: nextNodeId,
+            title: article.title,
+            parentId: state.currentNodeId,
+            at: now,
+            stage: state.stageIndex,
+          },
+        ];
+        nextNodeId += 1;
+      }
 
       return {
         ...state,
         article,
-        trail,
+        path,
+        currentNodeId,
+        nextNodeId,
+        trail: asTrail(chainTo(path, currentNodeId)),
         loading: false,
         error: null,
         moves: state.moves + 1,
@@ -212,7 +316,9 @@ async function fetchArticle(title: string): Promise<Article> {
     } | null;
     throw new Error(body?.error ?? `Could not load "${title}"`);
   }
-  return (await response.json()) as Article;
+  // The payload crosses a cache, so its shape is not guaranteed to match this
+  // build's expectations — normalise before anything downstream reads it.
+  return toArticle(await response.json(), title);
 }
 
 export function useRun() {
@@ -226,7 +332,11 @@ export function useRun() {
   const requestId = useRef(0);
 
   const navigate = useCallback(
-    async (title: string, mode: "forward" | "back" | "first") => {
+    async (
+      title: string,
+      mode: "forward" | "back" | "first",
+      nodeId?: number,
+    ) => {
       const id = ++requestId.current;
       dispatch({ type: "loading" });
 
@@ -234,7 +344,7 @@ export function useRun() {
         const article = await fetchArticle(title);
         if (id !== requestId.current) return;
 
-        dispatch({ type: "loaded", article, mode });
+        dispatch({ type: "loaded", article, mode, nodeId });
       } catch (error) {
         if (id !== requestId.current) return;
         dispatch({
@@ -271,25 +381,31 @@ export function useRun() {
   );
 
   /**
-   * Return to a page already on the trail.
+   * Return to any page on the graph, including one on a branch that was walked
+   * away from.
    *
-   * The reducer truncates the trail back to whatever page it lands on, so
-   * jumping to index 2 of a five-page trail drops the last two entries and the
-   * route stays an accurate record of how the run actually went. This replaces
-   * a back button: stepping back one page is just jumping to the previous
-   * index, and the trail was already on screen.
+   * Jumping never erases anything — it moves the cursor, and the route is
+   * re-derived from wherever it lands. Confined to the current stage: pages
+   * from a checkpoint you already cleared are history, not somewhere to go
+   * back to.
    */
-  const jumpTo = useCallback(
-    (index: number) => {
+  const jumpToNode = useCallback(
+    (nodeId: number) => {
       if (state.status !== "playing") return;
-      const entry = state.trail[index];
-      const stageStart = state.stageStarts[state.stageStarts.length - 1] ?? 0;
-      if (!entry || index < stageStart || index === state.trail.length - 1) {
-        return;
-      }
-      void navigate(entry.title, "back");
+
+      const node = state.path.find((entry) => entry.id === nodeId);
+      if (!node || node.id === state.currentNodeId) return;
+      if (node.stage !== state.stageIndex) return;
+
+      void navigate(node.title, "back", node.id);
     },
-    [navigate, state.stageStarts, state.status, state.trail],
+    [
+      navigate,
+      state.currentNodeId,
+      state.path,
+      state.stageIndex,
+      state.status,
+    ],
   );
 
   const back = useCallback(() => {
@@ -320,7 +436,7 @@ export function useRun() {
     restart,
     go,
     back,
-    jumpTo,
+    jumpToNode,
     revealElapsed,
     giveUp,
     reset,

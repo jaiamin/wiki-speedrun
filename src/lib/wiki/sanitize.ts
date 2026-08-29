@@ -55,6 +55,14 @@ export interface SanitizedArticle {
   html: string;
   /** Every article reachable by clicking on this page, normalized. */
   links: string[];
+  /** Article headings used by the in-game contents rail. */
+  sections: ArticleSection[];
+}
+
+export interface ArticleSection {
+  id: string;
+  label: string;
+  level: 2 | 3;
 }
 
 /**
@@ -77,11 +85,24 @@ export function sanitizeArticle(rawHtml: string): SanitizedArticle {
 
   removeBlockedSections(root);
 
+  const sections = collectSections(root);
   const links = rewriteLinks(root);
   normalizeMedia(root);
   stripEventHandlers(root);
 
-  return { html: root.toString(), links: [...links].sort() };
+  return { html: root.toString(), links: [...links].sort(), sections };
+}
+
+/** Keep Wikipedia's section ids so contents buttons can scroll locally. */
+function collectSections(root: HTMLElement): ArticleSection[] {
+  return root
+    .querySelectorAll("h2, h3")
+    .map((heading) => ({
+      id: heading.getAttribute("id") ?? "",
+      label: heading.textContent.trim(),
+      level: heading.tagName === "H2" ? (2 as const) : (3 as const),
+    }))
+    .filter((section) => section.id && section.label);
 }
 
 /**

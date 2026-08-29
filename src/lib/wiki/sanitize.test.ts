@@ -12,7 +12,7 @@ const raw = JSON.parse(
 ).parse.text as string;
 
 describe("sanitizeArticle", () => {
-  const { html, links } = sanitizeArticle(raw);
+  const { html, links, sections } = sanitizeArticle(raw);
 
   it("strips scripts, styles and citation markers", () => {
     expect(html).not.toMatch(/<script/i);
@@ -29,6 +29,20 @@ describe("sanitizeArticle", () => {
   it("keeps the article body", () => {
     expect(html).toContain('id="Description"');
     expect(html).toContain('id="History"');
+  });
+
+  it("extracts the remaining section hierarchy for contents navigation", () => {
+    expect(sections).toContainEqual({
+      id: "Description",
+      label: "Description",
+      level: 2,
+    });
+    expect(sections).toContainEqual({
+      id: "Taxonomy",
+      label: "Taxonomy",
+      level: 3,
+    });
+    expect(sections.some((section) => section.id === "References")).toBe(false);
   });
 
   it("cuts the payload down substantially", () => {
