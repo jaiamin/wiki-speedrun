@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useTransition,
+} from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Toaster, toast } from "sonner";
 import { ArticleView } from "@/components/game/article-view";
@@ -24,15 +30,24 @@ import { DIFFICULTIES, type Difficulty, type Puzzle } from "@/lib/game/types";
  * shareable, survives a refresh, and can be linked to directly — none of which
  * would work if the home screen handed the puzzle over as component state.
  */
-export function PlayClient() {
+export function PlayClient({ backdropTerms }: { backdropTerms: string[] }) {
   const router = useRouter();
   const params = useSearchParams();
-  const { state, begin, go, jumpTo, revealElapsed, giveUp } = useRun();
+  const { state, begin, restart, go, jumpTo, revealElapsed, giveUp } = useRun();
   const elapsed = useElapsed(state.startedAt, state.finishedAt);
+  const [rerolling, setRerolling] = useState(false);
+  const [rerollError, setRerollError] = useState<string | null>(null);
+  const [rerollPending, startRerollTransition] = useTransition();
+  const rerollBusy = rerolling || rerollPending;
 
   const start = params.get("start");
   const targetsKey = params.getAll("target").filter(Boolean).join("\u001f");
   const rawDifficulty = params.get("difficulty") ?? "medium";
+  const isRandomRun = params.get("mode") === "random";
+  // Keep the transition intent stable after its one-use URL flag is removed.
+  // Otherwise useSearchParams briefly rerenders the route as a refresh and
+  // flashes the blank refresh fallback before the reveal state commits.
+  const [showIntro] = useState(() => params.get("reveal") === "1");
 
   const puzzle: Puzzle | null = useMemo(() => {
     const targets = targetsKey ? targetsKey.split("\u001f") : [];
@@ -52,11 +67,67 @@ export function PlayClient() {
     : null;
   useEffect(() => {
     if (!puzzle) return;
-    begin(puzzle);
+    begin(puzzle, showIntro);
+
+    // The reveal belongs to the transition from Home, not to the game URL.
+    // Remove the one-use flag so refreshes and shared links start directly.
+    if (showIntro) {
+      const cleanUrl = new URL(window.location.href);
+      cleanUrl.searchParams.delete("reveal");
+      window.history.replaceState(
+        null,
+        "",
+        `${cleanUrl.pathname}${cleanUrl.search}${cleanUrl.hash}`,
+      );
+    }
     // Keyed on the pairing rather than the puzzle object, which is rebuilt on
     // every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pairing]);
+
+  const reroll = useCallback(async () => {
+    if (!puzzle || !isRandomRun || rerollBusy) return;
+
+    setRerolling(true);
+    setRerollError(null);
+
+    try {
+      let nextPuzzle: Puzzle | null = null;
+
+      // A new pairing is what restarts the keyed reveal. Retry the extremely
+      // unlikely duplicate draw instead of showing a full progress bar again.
+      for (let attempt = 0; attempt < 3 && !nextPuzzle; attempt += 1) {
+        const response = await fetch(
+          `/api/puzzle?difficulty=${puzzle.difficulty}&stages=${puzzle.targets.length}`,
+          { cache: "no-store" },
+        );
+        if (!response.ok) throw new Error("no puzzle");
+
+        const candidate = (await response.json()) as Puzzle;
+        const candidatePairing = [candidate.start, ...candidate.targets].join("→");
+        if (candidatePairing !== pairing) nextPuzzle = candidate;
+      }
+
+      if (!nextPuzzle) throw new Error("duplicate puzzle");
+
+      const nextParams = new URLSearchParams({
+        mode: "random",
+        start: nextPuzzle.start,
+        difficulty: nextPuzzle.difficulty,
+        reveal: "1",
+      });
+      for (const target of nextPuzzle.targets) {
+        nextParams.append("target", target);
+      }
+      setRerolling(false);
+      startRerollTransition(() => {
+        router.replace(`/play?${nextParams.toString()}`, { scroll: false });
+      });
+    } catch {
+      setRerolling(false);
+      setRerollError("Could not draw a new pairing. Try again.");
+    }
+  }, [isRandomRun, pairing, puzzle, rerollBusy, router]);
 
   /**
    * Build the record for a finished run — won or abandoned. Pure: persisting
@@ -84,10 +155,7 @@ export function PlayClient() {
 
   const goHome = useCallback(() => router.push("/"), [router]);
 
-  const retry = useCallback(() => {
-    if (!state.puzzle) return;
-    begin(state.puzzle);
-  }, [begin, state.puzzle]);
+  const retry = useCallback(() => restart(), [restart]);
 
   useEffect(() => {
     if (
@@ -104,16 +172,34 @@ export function PlayClient() {
   }, [state.puzzle, state.stageIndex, state.status]);
 
   if (!puzzle) return <MissingPairing onHome={goHome} />;
-  if (!state.puzzle) return <Booting />;
+  if (!state.puzzle) {
+    return showIntro ? (
+      <Reveal
+        puzzle={puzzle}
+        backdropTerms={backdropTerms}
+        onElapsed={revealElapsed}
+        onReroll={isRandomRun ? reroll : undefined}
+        rerolling={rerollBusy}
+        rerollError={rerollError}
+      />
+    ) : (
+      <StartingGame />
+    );
+  }
 
-  // The pairing is shown, and the article loads, before the clock exists.
+  // The pairing is shown only while the source article loads.
   if (state.status === "revealing") {
-    return (
+    return state.showReveal ? (
       <Reveal
         puzzle={state.puzzle}
-        waiting={state.pending === null && !state.error}
+        backdropTerms={backdropTerms}
         onElapsed={revealElapsed}
+        onReroll={isRandomRun ? reroll : undefined}
+        rerolling={rerollBusy}
+        rerollError={rerollError}
       />
+    ) : (
+      <StartingGame />
     );
   }
 
@@ -196,12 +282,8 @@ export function PlayClient() {
   );
 }
 
-function Booting() {
-  return (
-    <div className="flex min-h-dvh items-center justify-center">
-      <span className="label">Loading run</span>
-    </div>
-  );
+function StartingGame() {
+  return <div className="min-h-dvh bg-canvas" aria-label="Preparing run" />;
 }
 
 /**

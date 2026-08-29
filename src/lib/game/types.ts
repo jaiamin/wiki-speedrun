@@ -41,8 +41,8 @@ export interface Puzzle {
 }
 
 /**
- * `revealing` is the beat between choosing a run and playing it: the pairing is
- * on screen, the article is loading behind it, and the clock has not started.
+ * `revealing` is the brief loading state where the pairing is visible but the
+ * source article and game clock have not started.
  */
 export type RunStatus =
   | "idle"

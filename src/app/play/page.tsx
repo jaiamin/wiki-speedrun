@@ -1,4 +1,6 @@
 import { Suspense } from "react";
+import { BACKDROP_TERM_COUNT } from "@/components/home/backdrop-layout";
+import { getBackdropTerms } from "@/lib/game/backdrop-terms";
 import { PlayClient } from "./play-client";
 
 /**
@@ -7,15 +9,13 @@ import { PlayClient } from "./play-client";
  * static generation.
  */
 export default function PlayPage() {
+  const backdropTerms = getBackdropTerms(BACKDROP_TERM_COUNT);
+
   return (
     <Suspense
-      fallback={
-        <div className="flex min-h-dvh items-center justify-center">
-          <span className="label">Loading run</span>
-        </div>
-      }
+      fallback={<div className="min-h-dvh bg-canvas" />}
     >
-      <PlayClient />
+      <PlayClient backdropTerms={backdropTerms} />
     </Suspense>
   );
 }

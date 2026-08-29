@@ -86,11 +86,9 @@ const RUN_LENGTH_META = {
 /**
  * The front door: everything needed to start a run, on one screen.
  *
- * The pairing is deliberately not shown here. Drawing it on the home page —
- * with a shuffle button to reject one you dislike — turns the game into
- * something you audition before playing; being dealt two articles and having to
- * make them work is the better game. The endpoints appear on the reveal, once
- * you have committed.
+ * The pairing is deliberately not shown here. The endpoints appear on the
+ * reveal after the player commits, where a random run can be rerolled before
+ * the clock begins.
  */
 export function Home({ backdropTerms }: { backdropTerms: string[] }) {
   const router = useRouter();
@@ -118,7 +116,7 @@ export function Home({ backdropTerms }: { backdropTerms: string[] }) {
     if (source === "custom") {
       if (!customReady) return;
       router.push(
-        `/play?start=${encodeURIComponent(customStart)}&target=${encodeURIComponent(customTarget)}`,
+        `/play?mode=custom&start=${encodeURIComponent(customStart)}&target=${encodeURIComponent(customTarget)}&reveal=1`,
       );
       return;
     }
@@ -136,8 +134,10 @@ export function Home({ backdropTerms }: { backdropTerms: string[] }) {
       const puzzle = (await response.json()) as Puzzle;
 
       const playParams = new URLSearchParams({
+        mode: "random",
         start: puzzle.start,
         difficulty,
+        reveal: "1",
       });
       for (const target of puzzle.targets) {
         playParams.append("target", target);

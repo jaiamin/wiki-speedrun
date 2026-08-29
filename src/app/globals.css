@@ -217,18 +217,11 @@
   }
 }
 
-/* Each countdown digit swells in as it replaces the last. */
-@keyframes reveal-count {
-  0% {
-    opacity: 0;
-    transform: scale(0.7);
+@keyframes pairing-progress {
+  from {
+    transform: scaleX(0);
   }
-  40% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1);
+  to {
+    transform: scaleX(1);
   }
 }

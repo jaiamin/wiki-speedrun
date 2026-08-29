@@ -1,123 +1,153 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { ArrowDown } from "lucide-react";
+import { useEffect } from "react";
+import { ArrowRight, BookOpen, Dices } from "lucide-react";
+import { Backdrop } from "@/components/home/backdrop";
+import { Button } from "@/components/ui/button";
 import { useSummary } from "@/lib/game/use-summary";
 import type { Puzzle } from "@/lib/game/types";
 
-/** Seconds the pairing is on screen before the clock starts. */
-const COUNT_FROM = 3;
+const REVEAL_DURATION_MS = 3000;
 
 interface RevealProps {
   puzzle: Puzzle;
-  /** False once the start article has arrived and the run can begin. */
-  waiting: boolean;
+  backdropTerms: string[];
   onElapsed: () => void;
+  onReroll?: () => void;
+  rerolling?: boolean;
+  rerollError?: string | null;
 }
 
 /**
- * The moment the pairing is revealed.
- *
- * The endpoints are deliberately hidden until now — a run you can preview and
- * reshuffle is a different game from one you are dealt. This is also where the
- * start article loads, so the countdown is doing real work rather than
- * manufacturing suspense: by the time it reaches zero the page is usually
- * already fetched, and the clock starts on a warm article.
+ * Show the dealt pairing only while the source article loads. The backdrop is
+ * decorative here, so its Wikipedia words are deliberately not links.
  */
-export function Reveal({ puzzle, waiting, onElapsed }: RevealProps) {
-  const [count, setCount] = useState(COUNT_FROM);
+export function Reveal({
+  puzzle,
+  backdropTerms,
+  onElapsed,
+  onReroll,
+  rerolling = false,
+  rerollError,
+}: RevealProps) {
+  const pairingKey = [puzzle.start, ...puzzle.targets].join("→");
 
   useEffect(() => {
-    if (count <= 0) return;
-
-    const timer = setTimeout(() => setCount((value) => value - 1), 1000);
-    return () => clearTimeout(timer);
-  }, [count]);
-
-  // Announce the end of the countdown once, and let the reducer decide whether
-  // that means "start now" or "start as soon as the article lands".
-  useEffect(() => {
-    if (count > 0) return;
-    onElapsed();
-  }, [count, onElapsed]);
+    if (rerolling) return;
+    const timer = window.setTimeout(onElapsed, REVEAL_DURATION_MS);
+    return () => window.clearTimeout(timer);
+  }, [onElapsed, pairingKey, rerolling]);
 
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center px-5 py-16">
-      <div className="w-full max-w-sm">
-        {puzzle.targets.length > 1 && (
-          <div className="font-display mb-8 text-center text-sm font-bold text-[var(--color-play)]">
-            {puzzle.targets.length === 3 ? "Relay" : "Marathon"} · {puzzle.targets.length}{" "}
-            targets
+    <div className="flex min-h-dvh items-center justify-center px-4 py-10 sm:px-5 sm:py-16">
+      <Backdrop terms={backdropTerms} interactive={false} />
+
+      <div className="relative z-10 w-full max-w-[56rem] rounded-[22px] bg-canvas px-6 py-14 shadow-[-5px_7px_0_rgba(11,26,74,0.1),-16px_30px_70px_-26px_rgba(10,24,80,0.62),-5px_12px_26px_-14px_rgba(10,24,80,0.34),0_2px_8px_rgba(10,24,80,0.14)] sm:px-16 sm:py-16">
+        <h1 className="font-display text-center text-[clamp(2.5rem,8vw,4rem)] leading-[0.95] font-semibold tracking-[-0.025em]">
+          wiki<span className="text-link underline decoration-[0.11em] underline-offset-[0.13em]">dash</span>.io
+        </h1>
+
+        <p className="font-display mt-5 text-center text-lg font-medium text-muted">
+          Two articles. One clock. Links only.
+        </p>
+
+        <div className="mx-auto mt-9 max-w-[34rem]">
+          <div className="flex h-[24.75rem] flex-col justify-center sm:h-[22.5rem]">
+            <div className="relative grid grid-cols-2 gap-16 sm:gap-20">
+              <Endpoint label="Source" title={puzzle.start} />
+              <div
+                className="absolute top-1/2 left-1/2 z-10 -translate-x-1/2 -translate-y-1/2"
+                aria-hidden
+              >
+                <ArrowRight className="h-7 w-16 stroke-[3.5] text-black sm:w-20" />
+              </div>
+              <Endpoint label="Target" title={puzzle.targets[0]} />
+            </div>
+
+            <div
+              className="relative mx-auto mt-8 flex h-7 w-full max-w-[22rem] items-center justify-center overflow-hidden rounded-full bg-black/10"
+              role="progressbar"
+              aria-label="Preparing run"
+              aria-valuemin={0}
+              aria-valuemax={100}
+            >
+              <div
+                key={pairingKey}
+                className="absolute inset-y-0 left-0 w-full origin-left rounded-full bg-[var(--color-play-button)]"
+                style={{
+                  animation: `pairing-progress ${REVEAL_DURATION_MS}ms linear forwards`,
+                }}
+              />
+              <span className="font-display relative z-10 text-sm font-bold tracking-[0.08em] text-black uppercase">
+                Get ready
+              </span>
+            </div>
           </div>
-        )}
-        <Endpoint label="Start" title={puzzle.start} />
 
-        <div className="flex justify-center py-4" aria-hidden>
-          <ArrowDown className="size-4 text-faint" />
+          <div className="mt-8 flex h-[3.25rem] justify-center">
+            {onReroll && (
+              <Button
+                variant="play"
+                size="lg"
+                className="font-display h-[3.25rem] min-w-[12.5rem] rounded-full px-8 text-base font-bold tracking-[0.12em] uppercase"
+                disabled={rerolling}
+                onClick={onReroll}
+                aria-busy={rerolling}
+              >
+                <Dices
+                  className={`size-5 ${rerolling ? "animate-spin" : ""}`}
+                  aria-hidden
+                />
+                Reroll
+              </Button>
+            )}
+          </div>
+
+          {rerollError && (
+            <span className="sr-only" role="alert">
+              {rerollError}
+            </span>
+          )}
         </div>
-
-        <Endpoint
-          label={puzzle.targets.length > 1 ? `Target 1 of ${puzzle.targets.length}` : "Target"}
-          title={puzzle.targets[0]}
-          accent
-        />
-      </div>
-
-      <div className="mt-12 flex h-16 items-center justify-center">
-        {count > 0 ? (
-          <span
-            key={count}
-            className="tnum animate-[reveal-count_1s_ease-out] font-mono text-[3.5rem] leading-none font-medium tracking-[-0.04em] text-[var(--color-play)]"
-            aria-live="polite"
-          >
-            {count}
-          </span>
-        ) : (
-          <span className="text-[0.8125rem] text-muted">
-            {waiting ? "Loading the first article…" : "Go"}
-          </span>
-        )}
       </div>
     </div>
   );
 }
 
-function Endpoint({
-  label,
-  title,
-  accent = false,
-}: {
-  label: string;
-  title: string;
-  accent?: boolean;
-}) {
+function Endpoint({ label, title }: { label: string; title: string }) {
   const summary = useSummary(title);
 
   return (
-    <div className="text-center">
-      <div className="label mb-2">{label}</div>
+    <div className="rounded-2xl border-2 border-black/25 bg-white p-3 text-center sm:p-4">
+      <div className="font-display mb-3 text-xs font-bold tracking-[0.12em] text-[var(--color-backdrop-ink)]/65 uppercase">
+        {label}
+      </div>
 
-      <div className="flex flex-col items-center gap-2.5">
-        {summary?.thumbnail && (
+      <div className="mx-auto mb-3 size-20 overflow-hidden rounded-xl bg-black/5 sm:size-24">
+        {summary?.thumbnail ? (
           <img
             src={summary.thumbnail.source}
             alt=""
-            className="size-14 rounded-[8px] border border-line object-cover"
+            className="size-full object-cover"
           />
-        )}
-        <div>
-          <div
-            className={`text-[1.375rem] leading-tight font-bold tracking-[-0.02em] ${accent ? "text-[var(--color-play)]" : ""}`}
-          >
-            {title}
+        ) : (
+          <div className="flex size-full items-center justify-center">
+            <BookOpen
+              className="size-8 stroke-[1.75] text-[var(--color-backdrop-ink)]/45 sm:size-9"
+              aria-label="Article image unavailable"
+            />
           </div>
-          {summary?.description && (
-            <p className="mt-1 text-[0.8125rem] leading-relaxed text-muted">
-              {summary.description}
-            </p>
-          )}
-        </div>
+        )}
       </div>
+
+      <div className="font-display line-clamp-2 text-base leading-tight font-bold text-[var(--color-backdrop-ink)] sm:text-lg">
+        {title}
+      </div>
+      {summary?.description && (
+        <p className="font-display mt-1.5 line-clamp-2 text-xs leading-relaxed text-muted">
+          {summary.description}
+        </p>
+      )}
     </div>
   );
 }

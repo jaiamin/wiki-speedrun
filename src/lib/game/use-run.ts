@@ -32,14 +32,12 @@ interface RunState {
   stageStarts: number[];
   completedStages: StageCompletion[];
   article: Article | null;
-  /**
-   * The start article, fetched during the reveal and held back until the
-   * countdown finishes — the reveal doubles as a loading screen, so the page
-   * is already warm when the clock starts.
-   */
+  /** Cached so Try Again can restart without loading the source page again. */
+  startArticle: Article | null;
+  /** The source article, held until the short pairing reveal finishes. */
   pending: Article | null;
-  /** True once the reveal countdown has elapsed, whether or not the fetch has. */
   revealElapsed: boolean;
+  showReveal: boolean;
   loading: boolean;
   error: string | null;
   startedAt: number | null;
@@ -47,7 +45,8 @@ interface RunState {
 }
 
 type Action =
-  | { type: "begin"; puzzle: Puzzle }
+  | { type: "begin"; puzzle: Puzzle; reveal: boolean }
+  | { type: "restart" }
   | { type: "loading" }
   | { type: "loaded"; article: Article; mode: "forward" | "back" | "first" }
   | { type: "revealElapsed" }
@@ -65,8 +64,10 @@ const initialState: RunState = {
   stageStarts: [],
   completedStages: [],
   article: null,
+  startArticle: null,
   pending: null,
   revealElapsed: false,
+  showReveal: false,
   loading: false,
   error: null,
   startedAt: null,
@@ -87,14 +88,17 @@ function beginPlaying(
     ...state,
     status: "playing",
     article,
+    startArticle: article,
     pending: null,
     revealElapsed: true,
+    showReveal: false,
     trail: [{ title: article.title, at: now }],
     moves: 0,
     stageIndex: 0,
     stageStarts: [0],
     completedStages: [],
     startedAt: now,
+    finishedAt: null,
     loading: false,
     error: null,
   };
@@ -103,7 +107,18 @@ function beginPlaying(
 function reducer(state: RunState, action: Action): RunState {
   switch (action.type) {
     case "begin":
-      return { ...initialState, puzzle: action.puzzle, status: "revealing" };
+      return {
+        ...initialState,
+        puzzle: action.puzzle,
+        status: "revealing",
+        revealElapsed: !action.reveal,
+        showReveal: action.reveal,
+      };
+
+    case "restart":
+      return state.puzzle && state.startArticle
+        ? beginPlaying(state, state.startArticle, Date.now())
+        : state;
 
     case "loading":
       return { ...state, loading: true, error: null };
@@ -112,16 +127,13 @@ function reducer(state: RunState, action: Action): RunState {
       const { article, mode } = action;
       const now = Date.now();
 
-      // The first article arriving mid-reveal must not start the run: hold it
-      // until the countdown is done, or start immediately if it already is.
       if (mode === "first" && state.status === "revealing") {
         return state.revealElapsed
           ? beginPlaying(state, article, now)
           : { ...state, pending: article, loading: false, error: null };
       }
 
-      // Every remaining load is a move within a running game: `first` only ever
-      // arrives during the reveal, which the guard above already handled.
+      // Every remaining load is a move within a running game.
       //
       // Backtracking pops the trail, and a forward move landing somewhere
       // already visited truncates back to that point, so the trail always
@@ -236,12 +248,14 @@ export function useRun() {
   );
 
   const begin = useCallback(
-    (puzzle: Puzzle) => {
-      dispatch({ type: "begin", puzzle });
+    (puzzle: Puzzle, reveal: boolean) => {
+      dispatch({ type: "begin", puzzle, reveal });
       void navigate(puzzle.start, "first");
     },
     [navigate],
   );
+
+  const restart = useCallback(() => dispatch({ type: "restart" }), []);
 
   const revealElapsed = useCallback(
     () => dispatch({ type: "revealElapsed" }),
@@ -300,7 +314,17 @@ export function useRun() {
     dispatch({ type: "targetReached", at: Date.now() });
   }, [state.article, state.puzzle, state.stageIndex, state.status]);
 
-  return { state, begin, go, back, jumpTo, revealElapsed, giveUp, reset };
+  return {
+    state,
+    begin,
+    restart,
+    go,
+    back,
+    jumpTo,
+    revealElapsed,
+    giveUp,
+    reset,
+  };
 }
 
 /**

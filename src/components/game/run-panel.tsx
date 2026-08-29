@@ -112,7 +112,7 @@ function Target({ title }: { title: string }) {
         {title}
       </div>
       {summary?.description && (
-        <p className="mt-1 text-[0.8125rem] leading-relaxed text-muted">
+        <p className="font-display mt-1 text-[0.8125rem] leading-relaxed text-muted">
           {summary.description}
         </p>
       )}

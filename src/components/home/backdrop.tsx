@@ -8,9 +8,15 @@ import {
   type BackdropPosition,
 } from "./backdrop-layout";
 
-export function Backdrop({ terms }: { terms: string[] }) {
+export function Backdrop({
+  terms,
+  interactive = true,
+}: {
+  terms: string[];
+  interactive?: boolean;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const wordRefs = useRef<Array<HTMLAnchorElement | null>>([]);
+  const wordRefs = useRef<Array<HTMLElement | null>>([]);
   const [positions, setPositions] = useState<
     Array<BackdropPosition | null>
   >([]);
@@ -71,29 +77,41 @@ export function Backdrop({ terms }: { terms: string[] }) {
         if (!term) return null;
         const position = positions[index];
 
-        return (
+        const ref = (element: HTMLElement | null) => {
+          wordRefs.current[index] = element;
+        };
+        const style = {
+          left: position ? `${position.left}px` : 0,
+          top: position ? `${position.top}px` : 0,
+          visibility: position ? "visible" : "hidden",
+          "--term-size": node.size,
+          "--term-tilt": `${node.tilt}deg`,
+        } as React.CSSProperties;
+        const className = `backdrop-term font-display text-backdrop-ink absolute font-bold whitespace-nowrap ${interactive ? "pointer-events-auto" : ""}`;
+
+        return interactive ? (
           <a
             key={`${term}-${index}`}
-            ref={(element) => {
-              wordRefs.current[index] = element;
-            }}
+            ref={ref}
             href={`https://en.wikipedia.org/wiki/${titleToPath(term)}`}
             target="_blank"
             rel="noopener noreferrer"
             tabIndex={position ? undefined : -1}
-            className="backdrop-term text-backdrop-ink pointer-events-auto absolute font-bold whitespace-nowrap"
-            style={
-              {
-                left: position ? `${position.left}px` : 0,
-                top: position ? `${position.top}px` : 0,
-                visibility: position ? "visible" : "hidden",
-                "--term-size": node.size,
-                "--term-tilt": `${node.tilt}deg`,
-              } as React.CSSProperties
-            }
+            className={className}
+            style={style}
           >
             {term}
           </a>
+        ) : (
+          <span
+            key={`${term}-${index}`}
+            ref={ref}
+            className={className}
+            style={style}
+            aria-hidden
+          >
+            {term}
+          </span>
         );
       })}
     </div>

@@ -161,7 +161,7 @@ export function LinkPreview({ anchor, summary, loading }: LinkPreviewProps) {
           <div className="truncate text-[0.8125rem] font-semibold tracking-[-0.011em]">
             {anchor.title}
           </div>
-          <p className="mt-0.5 line-clamp-3 text-xs leading-relaxed text-muted">
+          <p className="font-display mt-0.5 line-clamp-3 text-xs leading-relaxed text-muted">
             {loading
               ? "…"
               : (summary?.description ??

@@ -114,7 +114,7 @@ export function ArticleSearch({
             // Let a click on a suggestion land before the list unmounts.
             blurTimer.current = setTimeout(() => setOpen(false), 120);
           }}
-          className="font-display h-12 w-full rounded-xl border-2 border-black bg-white px-4 text-[0.9375rem] font-semibold text-[var(--color-backdrop-ink)] caret-[var(--color-play)] outline-none transition-colors placeholder:font-medium placeholder:text-[var(--color-backdrop-ink)]/40 focus:bg-[#eef3ff]"
+          className={`font-display h-12 w-full rounded-xl border-2 bg-white px-4 text-[0.9375rem] font-semibold text-[var(--color-backdrop-ink)] caret-[var(--color-play)] outline-none transition-colors placeholder:font-medium placeholder:text-[var(--color-backdrop-ink)]/40 focus:bg-[#eef3ff] ${value ? "border-black" : "border-black/35"}`}
         />
         {loading ? (
           <Loader2
@@ -148,7 +148,7 @@ export function ArticleSearch({
                   {result.title}
                 </span>
                 {result.description && (
-                  <span className="block truncate text-xs text-muted">
+                  <span className="font-display block truncate text-xs text-muted">
                     {result.description}
                   </span>
                 )}
