@@ -104,6 +104,27 @@ const MODE_META = {
   },
 } as const;
 
+function ModeButton({
+  mode,
+  onSelect,
+}: {
+  mode: HomeMode;
+  onSelect: (mode: HomeMode) => void;
+}) {
+  const meta = MODE_META[mode];
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(mode)}
+      className="font-display flex min-h-[6rem] w-full items-center justify-center rounded-[22px] border-2 border-black text-[1.15rem] font-bold tracking-[0.06em] text-black transition-transform hover:-translate-y-0.5 hover:brightness-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-play)]"
+      style={{ backgroundColor: meta.bg }}
+    >
+      {meta.label}
+    </button>
+  );
+}
+
 /**
  * The front door: everything needed to start a run, on one screen.
  *
@@ -210,7 +231,7 @@ export function Home({ backdropTerms }: { backdropTerms: string[] }) {
     <div className="flex min-h-dvh flex-col items-center justify-center px-4 py-10 sm:px-5 sm:py-16">
       <Backdrop terms={backdropTerms} />
 
-      <div className="relative z-10 w-full max-w-[56rem] rounded-[22px] border-2 border-black bg-canvas px-5 py-14 shadow-[-5px_7px_0_rgba(11,26,74,0.1),-16px_30px_70px_-26px_rgba(10,24,80,0.62),-5px_12px_26px_-14px_rgba(10,24,80,0.34),0_2px_8px_rgba(10,24,80,0.14)] sm:px-14 sm:py-16">
+      <div className="relative z-10 w-full max-w-[56rem] rounded-[22px] border-2 border-black bg-canvas px-5 pt-14 pb-16 shadow-[-5px_7px_0_rgba(11,26,74,0.1),-16px_30px_70px_-26px_rgba(10,24,80,0.62),-5px_12px_26px_-14px_rgba(10,24,80,0.34),0_2px_8px_rgba(10,24,80,0.14)] sm:px-14 sm:pt-16 sm:pb-24">
         <h1 className="font-display text-center text-[clamp(2.5rem,8vw,4rem)] leading-[0.95] font-semibold tracking-[-0.025em]">
           wiki<span className="text-link underline decoration-[0.11em] underline-offset-[0.13em]">dash</span>.io
         </h1>
@@ -220,7 +241,33 @@ export function Home({ backdropTerms }: { backdropTerms: string[] }) {
         </p>
 
         <div className="mx-auto mt-14 max-w-[42rem]">
-          <div className="grid grid-cols-2 gap-x-16 gap-y-6 sm:gap-x-28">
+          <div className="sm:hidden">
+            <div className="font-display text-center text-base font-bold tracking-[0.08em] text-[var(--color-backdrop-ink)] uppercase">
+              Singleplayer
+            </div>
+            <div className="mt-6 space-y-3">
+              <ModeButton mode="solo" onSelect={setActiveMode} />
+              <ModeButton mode="daily" onSelect={setActiveMode} />
+            </div>
+
+            <div className="my-7 flex items-center gap-3" aria-hidden>
+              <div className="h-0.5 flex-1 rounded-full bg-black/18" />
+              <div className="font-display flex size-12 items-center justify-center rounded-full bg-canvas text-sm font-bold tracking-[0.08em] text-[var(--color-backdrop-ink)] uppercase">
+                Or
+              </div>
+              <div className="h-0.5 flex-1 rounded-full bg-black/18" />
+            </div>
+
+            <div className="font-display text-center text-base font-bold tracking-[0.08em] text-[var(--color-backdrop-ink)] uppercase">
+              Party
+            </div>
+            <div className="mt-6 space-y-3">
+              <ModeButton mode="create" onSelect={setActiveMode} />
+              <ModeButton mode="join" onSelect={setActiveMode} />
+            </div>
+          </div>
+
+          <div className="hidden grid-cols-2 gap-x-28 gap-y-6 sm:grid">
             <div className="font-display text-center text-base font-bold tracking-[0.08em] text-[var(--color-backdrop-ink)] uppercase">
               Singleplayer
             </div>
@@ -228,7 +275,7 @@ export function Home({ backdropTerms }: { backdropTerms: string[] }) {
               Party
             </div>
 
-            <div className="relative col-span-2 grid grid-cols-2 gap-x-16 sm:gap-x-28">
+            <div className="relative col-span-2 grid grid-cols-2 gap-x-28">
               <div
                 className="absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 rounded-full bg-black/18"
                 aria-hidden
@@ -241,43 +288,13 @@ export function Home({ backdropTerms }: { backdropTerms: string[] }) {
               </div>
 
               <div className="space-y-3">
-                <button
-                  type="button"
-                  onClick={() => setActiveMode("solo")}
-                  className="font-display flex min-h-[6rem] w-full items-center justify-center rounded-[22px] border-2 border-black text-[1.15rem] font-bold tracking-[0.06em] text-black transition-transform hover:-translate-y-0.5 hover:brightness-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-play)]"
-                  style={{ backgroundColor: MODE_META.solo.bg }}
-                >
-                  Solo Run
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveMode("daily")}
-                  className="font-display flex min-h-[6rem] w-full items-center justify-center rounded-[22px] border-2 border-black text-[1.15rem] font-bold tracking-[0.06em] text-black transition-transform hover:-translate-y-0.5 hover:brightness-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-play)]"
-                  style={{ backgroundColor: MODE_META.daily.bg }}
-                >
-                  Daily Challenge
-                </button>
+                <ModeButton mode="solo" onSelect={setActiveMode} />
+                <ModeButton mode="daily" onSelect={setActiveMode} />
               </div>
 
               <div className="space-y-3">
-                <button
-                  type="button"
-                  onClick={() => setActiveMode("create")}
-                  className="font-display flex min-h-[6rem] w-full items-center justify-center rounded-[22px] border-2 border-black text-[1.15rem] font-bold tracking-[0.06em] text-black transition-transform hover:-translate-y-0.5 hover:brightness-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-play)]"
-                  style={{ backgroundColor: MODE_META.create.bg }}
-                >
-                  Create Room
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveMode("join")}
-                  className="font-display flex min-h-[6rem] w-full items-center justify-center rounded-[22px] border-2 border-black text-[1.15rem] font-bold tracking-[0.06em] text-black transition-transform hover:-translate-y-0.5 hover:brightness-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-play)]"
-                  style={{ backgroundColor: MODE_META.join.bg }}
-                >
-                  Join Room
-                </button>
+                <ModeButton mode="create" onSelect={setActiveMode} />
+                <ModeButton mode="join" onSelect={setActiveMode} />
               </div>
             </div>
           </div>
@@ -287,6 +304,28 @@ export function Home({ backdropTerms }: { backdropTerms: string[] }) {
           <p className="mt-4 text-center text-[0.8125rem] text-bad">{error}</p>
         )}
       </div>
+
+      <p className="font-display relative z-10 mt-5 w-full max-w-[56rem] px-4 text-center text-[0.8125rem] leading-relaxed font-medium text-white/85 md:whitespace-nowrap">
+        Wikidash uses content from{" "}
+        <a
+          href="https://www.wikipedia.org/"
+          target="_blank"
+          rel="noreferrer"
+          className="underline decoration-white/55 underline-offset-2 transition-colors hover:text-white"
+        >
+          Wikipedia
+        </a>{" "}
+        through Wikimedia APIs and is not affiliated with the{" "}
+        <a
+          href="https://wikimediafoundation.org/"
+          target="_blank"
+          rel="noreferrer"
+          className="underline decoration-white/55 underline-offset-2 transition-colors hover:text-white"
+        >
+          Wikimedia Foundation
+        </a>
+        .
+      </p>
 
       <Modal
         open={activeMode === "solo"}
